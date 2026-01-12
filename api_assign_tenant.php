@@ -7,6 +7,10 @@ $response = ['success' => false, 'message' => ''];
 $target_dir = "uploads/";
 if (!is_dir($target_dir)) mkdir($target_dir, 0777, true);
 
+// --- SECURITY: ALLOWED FILE TYPES ---
+$allowed_docs = ['pdf', 'jpg', 'jpeg', 'png', 'doc', 'docx'];
+$allowed_imgs = ['jpg', 'jpeg', 'png', 'webp'];
+
 $stall_id = $_POST['stall_id'] ?? 0;
 $name = $_POST['renter_name'] ?? '';
 $contact = $_POST['contact_number'] ?? '';
@@ -18,17 +22,34 @@ if (!$stall_id || !$name) {
 }
 
 $contract_path = null;
+$profile_path = null;
+
+// 1. SECURE CONTRACT UPLOAD
 if (isset($_FILES['contract_file']) && $_FILES['contract_file']['error'] == 0) {
-    $ext = pathinfo($_FILES["contract_file"]["name"], PATHINFO_EXTENSION);
+    $ext = strtolower(pathinfo($_FILES["contract_file"]["name"], PATHINFO_EXTENSION));
+    
+    // SECURITY CHECK
+    if (!in_array($ext, $allowed_docs)) {
+        echo json_encode(['success' => false, 'message' => 'Invalid Contract File. Only PDF, DOC, or Images allowed.']);
+        exit;
+    }
+
     $filename = time() . "_contract." . $ext;
     if (move_uploaded_file($_FILES["contract_file"]["tmp_name"], $target_dir . $filename)) {
         $contract_path = $target_dir . $filename;
     }
 }
 
-$profile_path = null;
+// 2. SECURE PROFILE IMAGE UPLOAD
 if (isset($_FILES['profile_image']) && $_FILES['profile_image']['error'] == 0) {
-    $ext = pathinfo($_FILES["profile_image"]["name"], PATHINFO_EXTENSION);
+    $ext = strtolower(pathinfo($_FILES["profile_image"]["name"], PATHINFO_EXTENSION));
+    
+    // SECURITY CHECK
+    if (!in_array($ext, $allowed_imgs)) {
+        echo json_encode(['success' => false, 'message' => 'Invalid Profile Image. Only JPG, PNG, or WEBP allowed.']);
+        exit;
+    }
+
     $filename = time() . "_profile." . $ext;
     if (move_uploaded_file($_FILES["profile_image"]["tmp_name"], $target_dir . $filename)) {
         $profile_path = $target_dir . $filename;
@@ -49,6 +70,10 @@ try {
     echo json_encode(['success' => true]);
 } catch (Exception $e) {
     $conn->rollback();
+    // Clean up files if DB fails to avoid junk
+    if ($contract_path && file_exists($contract_path)) unlink($contract_path);
+    if ($profile_path && file_exists($profile_path)) unlink($profile_path);
+    
     echo json_encode(['success' => false, 'message' => $e->getMessage()]);
 }
 ?>
