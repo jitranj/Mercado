@@ -8,12 +8,27 @@ include 'helpers.php';
 $current_role = $_SESSION['role'] ?? 'staff_monitor'; 
 
 // 1. DATA ENGINE
+// 1. DATA ENGINE (FIXED LOGIC)
 $sql = "
     SELECT 
         s.id, s.stall_number, s.pasilyo, s.floor, s.status, 
         r.renter_name, r.renter_id, r.contact_number, r.contract_file,
-        r.profile_image, 
-        COALESCE(TIMESTAMPDIFF(MONTH, MAX(p.month_paid_for), CURRENT_DATE()), 0) AS months_unpaid
+        r.profile_image, r.start_date,
+        
+        /* INTELLIGENT DUE DATE CALCULATION */
+        CASE 
+            /* Case 1: Has payment history -> Count months since last payment */
+            WHEN MAX(p.month_paid_for) IS NOT NULL 
+                THEN TIMESTAMPDIFF(MONTH, MAX(p.month_paid_for), CURRENT_DATE())
+            
+            /* Case 2: No payments yet -> Count months since Contract Start Date */
+            WHEN r.start_date IS NOT NULL 
+                THEN TIMESTAMPDIFF(MONTH, r.start_date, CURRENT_DATE())
+            
+            /* Fallback */
+            ELSE 0 
+        END AS months_unpaid
+
     FROM stalls s
     LEFT JOIN renters r ON s.id = r.stall_id AND s.status = 'occupied' AND r.end_date IS NULL
     LEFT JOIN payments p ON r.renter_id = p.renter_id
@@ -132,122 +147,174 @@ function render_stall($floor, $pasilyo, $stall_label, $data) {
 </header>
 
 <div class="dashboard-container">
-    <div id="floor-1" class="floor-view active">
+<div id="floor-1" class="floor-view active">
+        
         <div class="panel col-left">
             <div class="panel-header">West Wing</div>
             <div class="panel-body">
-                <div class="zone-label">Pasilyo 1D (9 Units)</div>
-                <div class="grid" style="grid-template-columns: repeat(3, 1fr);">
+                <div class="zone-label">Pasilyo 1D</div>
+                <div class="grid" style="grid-template-columns: 1fr;">
                     <?php for ($i=1; $i<=9; $i++) echo render_stall(1, '1D', $i, $stalls_data); ?>
                 </div>
-                <div class="zone-label">Handicrafts</div>
-                <div class="grid" style="grid-template-columns: repeat(2, 1fr);">
+                
+                <div class="zone-label" style="margin-top:15px;">Handicrafts</div>
+                <div class="grid" style="grid-template-columns: 1fr;">
                     <?php for ($i=1; $i<=2; $i++) echo render_stall(1, 'Handicrafts', $i, $stalls_data); ?>
                 </div>
             </div>
         </div>
+
         <div class="panel col-center">
             <div class="panel-header">Main Atrium</div>
             <div class="panel-body">
-                <div style="display:flex; gap:8px; flex:1;">
-                    <div style="flex:1; display:flex; flex-direction:column; gap:8px;">
-                        <div class="zone-label">1A (43 Units)</div>
-                        <div class="grid" style="grid-template-columns: repeat(5, 1fr); flex:1;">
-                            <?php foreach(get_stall_sequence(42) as $l) echo render_stall(1, '1A', $l, $stalls_data); ?>
+                <div style="display:flex; gap:20px; height:100%;">
+                    
+                    <div style="flex:1; display:flex; flex-direction:column; gap:20px;">
+                        
+                        <div style="flex:1; display:flex; flex-direction:column;">
+                            <div class="zone-label" style="font-size:12px; margin-bottom:10px;">Pasilyo 1A (43 Units)</div>
+                            <div class="grid" style="grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); align-content: start; gap: 8px;">
+                                <?php foreach(get_stall_sequence(42) as $l) echo render_stall(1, '1A', $l, $stalls_data); ?>
+                            </div>
                         </div>
-                        <div class="zone-label">1B (41 Units)</div>
-                        <div class="grid" style="grid-template-columns: repeat(5, 1fr); flex:1;">
-                            <?php foreach(get_stall_sequence(40) as $l) echo render_stall(1, '1B', $l, $stalls_data); ?>
+
+                        <div style="flex:1; display:flex; flex-direction:column;">
+                            <div class="zone-label" style="font-size:12px; margin-bottom:10px;">Pasilyo 1B (41 Units)</div>
+                            <div class="grid" style="grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); align-content: start; gap: 8px;">
+                                <?php foreach(get_stall_sequence(40) as $l) echo render_stall(1, '1B', $l, $stalls_data); ?>
+                            </div>
                         </div>
+
                     </div>
-                    <div style="flex:1; display:flex; flex-direction:column; gap:8px;">
-                        <div class="zone-label">1C (41 Units)</div>
-                        <div class="grid" style="grid-template-columns: repeat(5, 1fr); flex:1;">
-                            <?php foreach(get_stall_sequence(40) as $l) echo render_stall(1, '1C', $l, $stalls_data); ?>
+
+                    <div style="flex:1; display:flex; flex-direction:column; gap:20px;">
+                        
+                        <div style="flex:1; display:flex; flex-direction:column;">
+                            <div class="zone-label" style="font-size:12px; margin-bottom:10px;">Pasilyo 1C (41 Units)</div>
+                            <div class="grid" style="grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); align-content: start; gap: 8px;">
+                                <?php foreach(get_stall_sequence(40) as $l) echo render_stall(1, '1C', $l, $stalls_data); ?>
+                            </div>
                         </div>
-                        <div class="zone-label">1E (41 Units)</div>
-                        <div class="grid" style="grid-template-columns: repeat(5, 1fr); flex:1;">
-                            <?php foreach(get_stall_sequence(40) as $l) echo render_stall(1, '1E', $l, $stalls_data); ?>
+
+                        <div style="flex:1; display:flex; flex-direction:column;">
+                            <div class="zone-label" style="font-size:12px; margin-bottom:10px;">Pasilyo 1E (41 Units)</div>
+                            <div class="grid" style="grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); align-content: start; gap: 8px;">
+                                <?php foreach(get_stall_sequence(40) as $l) echo render_stall(1, '1E', $l, $stalls_data); ?>
+                            </div>
                         </div>
+
                     </div>
+
                 </div>
             </div>
         </div>
+
         <div class="panel col-right">
             <div class="panel-header">East Wing</div>
             <div class="panel-body">
-                <div class="zone-label">1F (10 Units)</div>
-                <div class="grid" style="grid-template-columns: repeat(3, 1fr);">
+                <div class="zone-label">Pasilyo 1F</div>
+                <div class="grid" style="grid-template-columns: 1fr;">
                     <?php for ($i=1; $i<=10; $i++) echo render_stall(1, '1F', $i, $stalls_data); ?>
                 </div>
-                <div class="zone-label">Ornamentals</div>
-                <div class="grid" style="grid-template-columns: repeat(2, 1fr);">
+
+                <div class="zone-label" style="margin-top:15px;">Ornamental</div>
+                <div class="grid" style="grid-template-columns: 1fr;">
                     <?php for ($i=1; $i<=2; $i++) echo render_stall(1, 'Ornamental', $i, $stalls_data); ?>
                 </div>
             </div>
         </div>
+
     </div>
 
-    <div id="floor-2" class="floor-view">
+<div id="floor-2" class="floor-view">
+        
         <div class="panel col-left">
             <div class="panel-header">West Wing</div>
             <div class="panel-body">
-                <div class="zone-label">2A (16 Units)</div>
-                <div class="grid" style="grid-template-columns: repeat(4, 1fr);">
+                <div class="zone-label">Pasilyo 2A (16 Units)</div>
+                <div class="grid" style="grid-template-columns: repeat(2, 1fr);">
                     <?php foreach(get_stall_sequence(16) as $l) echo render_stall(2, '2A', $l, $stalls_data); ?>
                 </div>
-                <div class="zone-label">2A-ANNEX</div>
-                <div class="grid" style="grid-template-columns: repeat(4, 1fr);">
+
+                <div class="zone-label" style="margin-top:10px;">2A-ANNEX</div>
+                <div class="grid" style="grid-template-columns: repeat(2, 1fr);">
                     <?php for($i=1; $i<=10; $i++) echo render_stall(2, '2A-ANNEX', $i, $stalls_data); ?>
-                </div>
-                <div style="display:flex; gap:6px; margin-top:8px;">
-                    <div style="flex:1"><div class="zone-label">2B</div><div class="grid" style="grid-template-columns:repeat(3,1fr)"><?php for($i=1;$i<=3;$i++) echo render_stall(2, '2B', $i, $stalls_data); ?></div></div>
-                    <div style="flex:1"><div class="zone-label">2F</div><div class="grid" style="grid-template-columns:repeat(3,1fr)"><?php for($i=1;$i<=6;$i++) echo render_stall(2, '2F', $i, $stalls_data); ?></div></div>
                 </div>
             </div>
         </div>
+
         <div class="panel col-center">
             <div class="panel-header">Center Hall</div>
             <div class="panel-body">
-                <div style="display:flex; gap:6px; flex:1;">
-                    <div style="flex:1; display:flex; flex-direction:column; gap:6px;">
-                        <div class="zone-label">2C (67 Units)</div>
-                        <div class="grid" style="grid-template-columns: repeat(8, 1fr); flex:1;">
+                
+                <div style="display:flex; gap:6px; flex:1; min-height:0;">
+                    <div style="flex:1">
+                        <div class="zone-label">Pasilyo 2C (67 Units)</div>
+                        <div class="grid" style="grid-template-columns: repeat(8, 1fr);">
                             <?php foreach(get_stall_sequence(66) as $l) echo render_stall(2, '2C', $l, $stalls_data); ?>
                         </div>
-                        <div class="zone-label">2D (71 Units)</div>
-                        <div class="grid" style="grid-template-columns: repeat(8, 1fr); flex:1;">
+                    </div>
+                    <div style="flex:1">
+                        <div class="zone-label">Pasilyo 2D (71 Units)</div>
+                        <div class="grid" style="grid-template-columns: repeat(8, 1fr);">
                             <?php foreach(get_stall_sequence(70) as $l) echo render_stall(2, '2D', $l, $stalls_data); ?>
                         </div>
                     </div>
-                    <div style="flex:1; display:flex; flex-direction:column; gap:6px;">
-                        <div class="zone-label">Pasilyo 2H</div>
-                        <div class="grid" style="grid-template-columns: repeat(4, 1fr); flex:1;">
-                            <?php foreach(get_stall_sequence(15) as $l) echo render_stall(2, '2H', $l, $stalls_data); ?>
+                </div>
+
+                <div style="height:1px; background:rgba(255,255,255,0.05); margin:4px 0;"></div>
+
+                <div style="display:flex; gap:6px; flex:1; min-height:0;">
+                    <div style="flex:1">
+                        <div class="zone-label">Pasilyo 2E (36 Units)</div>
+                        <div class="grid" style="grid-template-columns: repeat(8, 1fr);">
+                            <?php foreach(get_stall_sequence(36) as $l) echo render_stall(2, '2E', $l, $stalls_data); ?>
                         </div>
-                        <div class="zone-label">Food Court</div>
-                        <div class="grid" style="grid-template-columns: repeat(4, 1fr); flex:1;">
-                            <?php foreach(get_stall_sequence(15) as $l) echo render_stall(2, 'FC', $l, $stalls_data); ?>
+                    </div>
+                    <div style="flex:1">
+                        <div class="zone-label">Pasilyo 2G (38 Units)</div>
+                        <div class="grid" style="grid-template-columns: repeat(8, 1fr);">
+                            <?php foreach(get_stall_sequence(38) as $l) echo render_stall(2, '2G', $l, $stalls_data); ?>
                         </div>
                     </div>
                 </div>
+
+                <div style="height:1px; background:rgba(255,255,255,0.05); margin:4px 0;"></div>
+
+                <div style="display:flex; gap:6px; flex:0 0 auto;">
+                    <div style="flex:1">
+                        <div class="zone-label">Pasilyo 2B</div>
+                        <div class="grid" style="grid-template-columns: repeat(8, 1fr);">
+                            <?php for($i=1; $i<=3; $i++) echo render_stall(2, '2B', $i, $stalls_data); ?>
+                        </div>
+                    </div>
+                    <div style="flex:1">
+                        <div class="zone-label">Pasilyo 2F</div>
+                        <div class="grid" style="grid-template-columns: repeat(8, 1fr);">
+                            <?php for($i=1; $i<=6; $i++) echo render_stall(2, '2F', $i, $stalls_data); ?>
+                        </div>
+                    </div>
+                </div>
+
             </div>
         </div>
+
         <div class="panel col-right">
             <div class="panel-header">East Wing</div>
             <div class="panel-body">
-                <div class="zone-label">2E (36 Units)</div>
-                <div class="grid" style="grid-template-columns: repeat(5, 1fr);">
-                    <?php foreach(get_stall_sequence(36) as $l) echo render_stall(2, '2E', $l, $stalls_data); ?>
+                <div class="zone-label">Pasilyo 2H</div>
+                <div class="grid" style="grid-template-columns: repeat(2, 1fr);">
+                    <?php foreach(get_stall_sequence(15) as $l) echo render_stall(2, '2H', $l, $stalls_data); ?>
                 </div>
-                <div class="zone-label">2G (38 Units)</div>
-                <div class="grid" style="grid-template-columns: repeat(5, 1fr);">
-                    <?php foreach(get_stall_sequence(38) as $l) echo render_stall(2, '2G', $l, $stalls_data); ?>
+
+                <div class="zone-label" style="margin-top:10px; color:#f59e0b;">Food Court</div>
+                <div class="grid" style="grid-template-columns: repeat(2, 1fr);">
+                    <?php foreach(get_stall_sequence(15) as $l) echo render_stall(2, 'FC', $l, $stalls_data); ?>
                 </div>
             </div>
         </div>
+
     </div>
-</div>
 
 <div id="analyticsModal" class="modal-fullscreen" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; overflow-y: auto;">
     <div style="max-width: 1200px; margin: 0 auto;">

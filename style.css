@@ -117,8 +117,28 @@ body { margin: 0; padding: 0; height: 100vh; background: var(--bg-body); font-fa
     background: linear-gradient(90deg, var(--accent), transparent);
 }
 
-.panel-body { padding: 16px; flex: 1; display: flex; flex-direction: column; gap: 12px; }
-.col-left { flex: 1; } .col-center { flex: 2.2; } .col-right { flex: 1; }
+.col-left, .col-right {
+    /* Fixed slim width. 
+       Adjust '220px' if you want it even slimmer, 
+       but keep enough room for the "Pasilyo" text labels. */
+    flex: 0 0 100px; 
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    
+}
+
+.col-center {
+    flex: 1; /* Grows to fill the rest of the screen */
+    display: flex;
+    flex-direction: column;
+}
+
+/* Ensure panels take full height in this layout */
+.panel {
+    height: 100%; 
+    overflow-y: auto; /* Adds scrollbar if list is too long */
+}
 
 .zone-label {
     font-size: 10px;
@@ -129,21 +149,25 @@ body { margin: 0; padding: 0; height: 100vh; background: var(--bg-body); font-fa
     letter-spacing: 0.8px;
     opacity: 0.8;
 }
+.col-center .zone-label { text-align: center; font-size: 14px; }
 
 .grid { display: grid; gap: 6px; flex: 1; }
+.col-center .grid { padding-left: 15px; }
+.col-center .grid { padding-right: 15px; }
 
 .stall {
-    height: 32px;
+    height: 45px;           /* Good height for a list view */
+    width: 80px;            /* FILL the slim container (Removed fixed 80px) */
     background: var(--st-vacant);
     border: 1px solid var(--st-vacant-bd);
     color: var(--st-vacant-txt);
-    border-radius: 8px;
+    border-radius: 6px;     /* Slightly sharper corners for a clean look */
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-    font-size: 11px;
+    transition: all 0.2s;
+    font-size: 14px;        /* Readable size */
     font-weight: 700;
     box-shadow: inset 0 1px 2px rgba(0,0,0,0.3);
     position: relative;
@@ -210,3 +234,77 @@ body:not(.mode-payment) .stall.occupied { background: linear-gradient(135deg, #3
 
 option { color: #0f172a !important; background: white !important; }
 #searchResults, #searchResults b, #searchResults div { color: #0f172a !important; }
+
+
+#floor-2 .col-left, 
+#floor-2 .col-right {
+    flex: 0 0 180px !important; 
+}
+
+#floor-2 .col-left .stall,
+#floor-2 .col-right .stall {
+    height: 45px; 
+}
+
+#floor-2 .col-center .panel-body {
+    padding: 5px !important;    /* Reduce outer padding */
+    gap: 4px !important;        /* Reduce gap between rows */
+}
+
+#floor-2 .col-center .grid {
+    gap: 3px !important;        /* Reduce gap between stall boxes */
+}
+
+#floor-2 .col-center .zone-label {
+    margin: 2px 0 !important;   /* Remove space around text labels */
+    font-size: 15px;
+}
+
+/* --- FLOOR 2: SYMMETRICAL WINGS & COMPACT CENTER --- */
+
+/* 1. LOCK WINGS TO EXACT SAME WIDTH (220px) */
+#floor-2 .col-left, 
+#floor-2 .col-right {
+    flex: 0 0 200px !important; /* Fixed width for both wings */
+    min-width: 200px !important; /* Prevent shrinking */
+    max-width: 200px !important; /* Prevent growing */
+    padding: 0 4px !important;   /* Equal padding */
+}
+
+/* 2. COMPACT CENTER (Fits browser better) */
+#floor-2 .col-center .panel-body {
+    padding: 6px !important;
+    gap: 4px !important;
+}
+
+#floor-2 .col-center .grid {
+    gap: 8px !important;
+}
+
+#floor-2 .col-center .zone-label {
+    margin: 2px 0 2px 0 !important;
+    font-size: 11px;
+}
+
+/* 3. STALL SIZING FOR FLOOR 2 */
+#floor-2 .stall {
+    height: 42px !important; /* Balanced height */
+    font-size: 15px !important;
+    border-radius: 4px;
+}
+/* Adds a colored status dot to stalls even in Blue Map mode */
+.stall.occupied::after {
+    content: '';
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    box-shadow: 0 0 5px rgba(0,0,0,0.5);
+}
+
+/* Color the dot based on status */
+.stall.pay-good::after { background: #10b981; } /* Green Dot */
+.stall.pay-warn::after { background: #f59e0b; } /* Orange Dot */
+.stall.pay-crit::after { background: #ef4444; box-shadow: 0 0 8px #ef4444; } /* Glowing Red Dot */
