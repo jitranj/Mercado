@@ -3,8 +3,9 @@
 
 // 1. Hide Errors from User (Production Mode)
 // Change to '1' only when you are debugging. Keep '0' for normal use.
-error_reporting(0); 
-ini_set('display_errors', 0);
+// Change these to 1 temporarily to see the error
+error_reporting(1); 
+ini_set('display_errors', 1);
 
 // 2. Start Session Securely (If not already started)
 if (session_status() == PHP_SESSION_NONE) {

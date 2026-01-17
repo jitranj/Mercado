@@ -171,12 +171,14 @@ function animateValue(id, start, end, duration, prefix = '', suffix = '') {
 }
 
 function exportReport() {
-    const period = document.getElementById('reportPeriod').value;
-    window.open(`api_analytics.php?action=export&period=${period}`, '_blank');
+    // OLD: window.open('api_admin.php?action=export_dashboard', '_blank');
+    // NEW: Opens the beautiful Printable Report
+    window.open('report_print.php?type=dashboard', '_blank');
 }
 
 function viewAllDelinquents() {
-    alert('Opening detailed delinquents report...');
+    // Opens the full printable Red List report
+    window.open('report_print.php?type=red_list', '_blank');
 }
 
 function generateSOAReport() {
@@ -216,11 +218,35 @@ function changePass() {
 }
 
 function addUser() {
-    const formData = new FormData(document.getElementById('userForm'));
-    fetch('api_admin.php', { method: 'POST', body: formData }).then(r=>r.json()).then(d => {
-        if(d.success) { alert("User Created"); document.getElementById('userForm').reset(); }
-        else alert("Error: " + d.message);
-    });
+    const form = document.getElementById('userForm');
+    const formData = new FormData(form);
+    
+    // 1. Client-Side Check: Password Length
+    const pass = formData.get('password');
+    if (pass.length < 8) {
+        alert("⚠️ Password too short! Must be at least 8 characters.");
+        return;
+    }
+
+    // 2. Server Request with Error Catching
+    fetch('api_admin.php', { method: 'POST', body: formData })
+        .then(r => r.text()) // Get raw text first to catch PHP errors
+        .then(text => {
+            console.log("Server Response:", text); // See exact error in Console (F12)
+            try {
+                const d = JSON.parse(text); // Try to parse JSON
+                if(d.success) { 
+                    alert("✅ User Created Successfully!"); 
+                    form.reset(); 
+                } else { 
+                    alert("❌ Failed: " + (d.message || "Unknown Error")); 
+                }
+            } catch (e) {
+                // If parsing fails, it means PHP crashed or printed text
+                alert("❌ Critical Error: Check Console (F12) for details.\n\nServer said:\n" + text.substring(0, 100) + "...");
+            }
+        })
+        .catch(err => alert("Network Error: " + err));
 }
 
 function openModal(id) {

@@ -7,8 +7,7 @@ include 'helpers.php';
 // Pass PHP Role to JS securely
 $current_role = $_SESSION['role'] ?? 'staff_monitor'; 
 
-// 1. DATA ENGINE
-// 1. DATA ENGINE (FIXED LOGIC)
+// 1. DATA ENGINE (FIXED LOGIC FOR STRICT SQL MODE)
 $sql = "
     SELECT 
         s.id, s.stall_number, s.pasilyo, s.floor, s.status, 
@@ -32,7 +31,13 @@ $sql = "
     FROM stalls s
     LEFT JOIN renters r ON s.id = r.stall_id AND s.status = 'occupied' AND r.end_date IS NULL
     LEFT JOIN payments p ON r.renter_id = p.renter_id
-    GROUP BY s.id
+    
+    /* FIX: Added all non-aggregated columns to GROUP BY to prevent Error 500 */
+    GROUP BY 
+        s.id, s.stall_number, s.pasilyo, s.floor, s.status, 
+        r.renter_name, r.renter_id, r.contact_number, r.contract_file,
+        r.profile_image, r.start_date
+
     ORDER BY s.floor, s.pasilyo, s.stall_number;
 ";
 
@@ -142,7 +147,19 @@ function render_stall($floor, $pasilyo, $stall_label, $data) {
             <button id="btn-f1" class="toggle-btn active" onclick="switchFloor(1)">1F</button>
             <button id="btn-f2" class="toggle-btn" onclick="switchFloor(2)">2F</button>
         </div>
-        <a href="logout.php" style="color:#ef4444; text-decoration:none; font-size:12px; font-weight:700; margin-left:5px;">&times;</a>
+            <div class="user-menu" style="display:flex; align-items:center; gap:10px; margin-left:10px;">
+                <span style="font-size:12px; color:#94a3b8;">
+                    <?php echo htmlspecialchars($_SESSION['username']); ?> 
+                    (<?php echo ucfirst($_SESSION['role']); ?>)
+                </span>
+                <a href="logout.php" class="btn-logout" style="
+                    background: #ef4444; color: white; text-decoration: none; 
+                    padding: 6px 12px; border-radius: 6px; font-size: 11px; font-weight: 700;
+                    display: flex; align-items: center; gap: 5px;">
+                    <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
+                    Sign Out
+                </a>
+            </div>
     </div>
 </header>
 
@@ -455,16 +472,33 @@ function render_stall($floor, $pasilyo, $stall_label, $data) {
             </div>
 
             <div id="tabExports" class="settings-content active" style="display:block; transition:opacity 0.3s ease;">
-                <div style="background:#f8fafc; padding:20px; border-radius:12px; border:1px solid #e2e8f0;">
-                    <p style="font-size:14px; color:#64748b; margin-bottom:16px; font-weight:500;">Download reports for offline use.</p>
-                    <div style="display:flex; gap:10px; flex-wrap:wrap;">
-                        <button onclick="location.href='api_admin.php?action=export_red_list'" style="padding:12px 16px; background:#10b981; color:white; border:none; border-radius:8px; cursor:pointer; font-weight:600; transition:transform 0.2s, box-shadow 0.2s; box-shadow:0 2px 4px rgba(16,185,129,0.2);">Delinquent List (CSV)</button>
-                        <button onclick="location.href='api_admin.php?action=export_payments_csv'" style="padding:12px 16px; background:#3b82f6; color:white; border:none; border-radius:8px; cursor:pointer; font-weight:600; transition:transform 0.2s, box-shadow 0.2s; box-shadow:0 2px 4px rgba(59,130,246,0.2);">Payments (CSV)</button>
-                        <button onclick="location.href='api_admin.php?action=export_tenants_csv'" style="padding:12px 16px; background:#8b5cf6; color:white; border:none; border-radius:8px; cursor:pointer; font-weight:600; transition:transform 0.2s, box-shadow 0.2s; box-shadow:0 2px 4px rgba(139,92,246,0.2);">Tenants (CSV)</button>
-                        <button onclick="location.href='api_admin.php?action=export_backup'" style="padding:12px 16px; background:#374151; color:white; border:none; border-radius:8px; cursor:pointer; font-weight:600; transition:transform 0.2s, box-shadow 0.2s; box-shadow:0 2px 4px rgba(55,65,81,0.2);">Full SQL Backup</button>
-                    </div>
-                </div>
-            </div>
+    <div style="background:#f8fafc; padding:20px; border-radius:12px; border:1px solid #e2e8f0;">
+        <p style="font-size:14px; color:#64748b; margin-bottom:16px; font-weight:500;">Print official reports or download backups.</p>
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+            
+            <button onclick="window.open('report_print.php?type=red_list', '_blank')" 
+                style="padding:12px 16px; background:#ef4444; color:white; border:none; border-radius:8px; cursor:pointer; font-weight:600; transition:transform 0.2s, box-shadow 0.2s; box-shadow:0 2px 4px rgba(239,68,68,0.2);">
+                📄 Delinquent Report
+            </button>
+
+            <button onclick="window.open('report_print.php?type=tenants', '_blank')" 
+                style="padding:12px 16px; background:#8b5cf6; color:white; border:none; border-radius:8px; cursor:pointer; font-weight:600; transition:transform 0.2s, box-shadow 0.2s; box-shadow:0 2px 4px rgba(139,92,246,0.2);">
+                📄 Tenant Masterlist
+            </button>
+
+            <button onclick="location.href='api_admin.php?action=export_payments_csv'" 
+                style="padding:12px 16px; background:#3b82f6; color:white; border:none; border-radius:8px; cursor:pointer; font-weight:600; transition:transform 0.2s, box-shadow 0.2s; box-shadow:0 2px 4px rgba(59,130,246,0.2);">
+                📊 Payments (CSV)
+            </button>
+
+            <button onclick="location.href='api_admin.php?action=export_backup'" 
+                style="padding:12px 16px; background:#374151; color:white; border:none; border-radius:8px; cursor:pointer; font-weight:600; transition:transform 0.2s, box-shadow 0.2s; box-shadow:0 2px 4px rgba(55,65,81,0.2);">
+                💾 Full SQL Backup
+            </button>
+
+        </div>
+    </div>
+</div>
 
             <div id="tabPassword" class="settings-content" style="display:none; transition:opacity 0.3s ease;">
                 <div style="background:#f8fafc; padding:20px; border-radius:12px; border:1px solid #e2e8f0;">
