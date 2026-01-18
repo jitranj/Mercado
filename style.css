@@ -226,8 +226,96 @@ body:not(.mode-payment) .stall.occupied { background: linear-gradient(135deg, #3
 .stat-val { font-size:24px; font-weight:800; color:white; margin:5px 0 0; }
 .stat-label { font-size:12px; font-weight:600; color:var(--txt-sec); text-transform:uppercase; }
 
-#settingsModal > div, #stallModal > div { color: #0f172a; }
-#stallModal h3, #stallModal p, #stallModal label { color: #0f172a; }
+/* --- SUPER-SIZED MODAL STYLES --- */
+
+/* 1. Main Modal Box (Overrides inline HTML styles) */
+#stallModal > div {
+    width: 95% !important;              /* Fill most of the screen width */
+    max-width: 1200px !important;       /* Massive upgrade from 700px */
+    height: 85vh !important;            /* Fixed tall height (85% of screen) */
+    max-height: 1000px !important;      /* Prevent it from getting too tall */
+    margin: 5vh auto !important;        /* Center vertically */
+    display: flex !important;           /* Use Flexbox for layout */
+    flex-direction: column !important;  /* Stack Header on top of Body */
+    border-radius: 16px !important;     /* Smooth corners */
+    color: #0f172a !important;          /* Ensure text is dark/readable */
+}
+
+/* 2. Modal Header */
+#stallModal .modal-header {
+    padding: 20px 30px !important;      /* Bigger header padding */
+    flex-shrink: 0 !important;          /* Prevent header from shrinking */
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #e2e8f0;
+}
+#stallModal h2 {
+    font-size: 24px !important;         /* Larger Title */
+    font-weight: 800 !important;
+    margin: 0;
+}
+
+/* 3. The Split View Container (Body) */
+#stallModal .modal-body {
+    display: flex !important;
+    flex: 1 !important;                 /* Take up all remaining height */
+    overflow: hidden !important;        /* Prevent double scrollbars */
+    height: auto !important;            /* Reset inline height */
+}
+
+/* 4. Left Panel (Forms & Actions) */
+#stallModal .modal-left {
+    flex: 1.5 !important;               /* Give forms 60% of the width */
+    padding: 35px !important;           /* Luxurious padding */
+    overflow-y: auto !important;        /* Internal scroll for long forms */
+    border-right: 1px solid #e2e8f0 !important;
+}
+
+/* 5. Right Panel (History Table) */
+#stallModal .modal-right {
+    flex: 1 !important;                 /* Give history 40% of the width */
+    padding: 35px !important;
+    background-color: #f8fafc !important;
+    overflow-y: auto !important;
+}
+
+/* --- BIGGER INPUTS & BUTTONS --- */
+#stallModal input, 
+#stallModal select,
+#stallModal button {
+    width: 100% !important;
+    padding: 14px 16px !important;      /* Tall click areas */
+    font-size: 15px !important;         /* Readable text size */
+    border-radius: 8px !important;      /* Modern rounding */
+    margin-bottom: 12px !important;     /* Spacing between elements */
+    color: #0f172a !important;
+}
+
+/* Style the Labels */
+#stallModal label {
+    font-size: 13px !important;
+    font-weight: 700 !important;
+    color: #475569 !important;
+    margin-bottom: 6px !important;
+    display: block !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.5px !important;
+}
+
+/* Fix Table Styles in Right Panel */
+#historyList td, #historyList th {
+    padding: 12px !important;           /* More space in table cells */
+    font-size: 14px !important;
+    color: #334155 !important;
+}
+
+/* Settings Modal Text Color Fix & Dropdowns */
+#settingsModal > div { color: #0f172a !important; }
+option { color: #0f172a !important; background: white !important; }
+#searchResults, #searchResults b, #searchResults div { color: #0f172a !important; }
+.close-btn { color: #64748b; }
+.close-btn:hover { color: #ef4444; }
 #historyList td, #historyList th { color: #334155; }
 .close-btn { color: #64748b; }
 .close-btn:hover { color: #ef4444; }
@@ -308,3 +396,65 @@ option { color: #0f172a !important; background: white !important; }
 .stall.pay-good::after { background: #10b981; } /* Green Dot */
 .stall.pay-warn::after { background: #f59e0b; } /* Orange Dot */
 .stall.pay-crit::after { background: #ef4444; box-shadow: 0 0 8px #ef4444; } /* Glowing Red Dot */
+
+/* --- TOAST NOTIFICATIONS --- */
+#toast-container {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 99999;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.toast {
+    min-width: 250px;
+    padding: 16px 20px;
+    background: white;
+    color: #1e293b;
+    border-radius: 8px;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    border-left: 5px solid #3b82f6; /* Default Blue */
+    font-size: 14px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    animation: slideInRight 0.3s ease-out forwards;
+    opacity: 0;
+    transform: translateX(100%);
+}
+
+.toast.success { border-left-color: #10b981; } /* Green */
+.toast.error { border-left-color: #ef4444; }   /* Red */
+
+@keyframes slideInRight {
+    to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes fadeOut {
+    to { opacity: 0; transform: translateY(10px); }
+}
+
+/* --- RESERVED STATUS COLORS --- */
+.stall.reserved {
+    background: linear-gradient(135deg, #cec002, #b9d906); /* Orange Gradient */
+    color: white;
+    border: 1px solid #b45309;
+    box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+}
+
+.stall.reserved:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
+}
+
+/* Add a clock icon dot for reserved units */
+.stall.reserved::after {
+    content: '🕒'; /* Clock Icon */
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    font-size: 8px;
+}

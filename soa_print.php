@@ -16,7 +16,7 @@ function renderSOA($conn, $renter_id) {
     if (!$renter) return;
 
     // 2. Calculate Unpaid Months
-    $pay_sql = "SELECT MAX(month_paid_for) as last_payment FROM payments WHERE renter_id = ?";
+    $pay_sql = "SELECT MAX(month_paid_for) as last_payment FROM payments WHERE renter_id = ? AND payment_type = 'rent'";
     $p_stmt = $conn->prepare($pay_sql);
     $p_stmt->bind_param("i", $renter_id);
     $p_stmt->execute();
@@ -30,14 +30,19 @@ function renderSOA($conn, $renter_id) {
     $total_due = 0;
     $monthly_rate = $renter['monthly_rate'];
 
-    // Goodwill Calculation
-    $goodwill_due = 0;
-    // (Assuming logic: if goodwill_amount < 50k, owe the rest)
-    // Adjust this logic if your goodwill rules are different
-    if (isset($renter['goodwill_amount']) && $renter['goodwill_amount'] < 50000) {
-        $goodwill_due = 50000 - $renter['goodwill_amount'];
-    }
+    // --- GOODWILL LOGIC ---
+    $gw_total = isset($renter['goodwill_total']) ? floatval($renter['goodwill_total']) : 50000.00;
+    $g_sql = "SELECT SUM(amount) FROM payments WHERE renter_id = ? AND payment_type = 'goodwill'";
+    $g_stmt = $conn->prepare($g_sql);
+    $g_stmt->bind_param("i", $renter_id);
+    $g_stmt->execute();
+    $result_g = $g_stmt->get_result()->fetch_row();
+    $gw_paid = $result_g[0] ?? 0;
 
+    $goodwill_due = $gw_total - $gw_paid;
+    if($goodwill_due < 0) $goodwill_due = 0;
+
+    // --- RENT LOOP ---
     $d1 = new DateTime($start_calc);
     $d2 = new DateTime($current_date);
     $d2->modify( '+1 month' ); 
@@ -65,83 +70,145 @@ function renderSOA($conn, $renter_id) {
         $period_string = "NO PENDING RENT";
     }
     
-    // HTML OUTPUT
+    // --- HTML OUTPUT ---
     ?>
     <div class="page-container">
-        <div class="header">
-            <div class="sub">Republic of the Philippines</div>
-            <div class="sub">Province of Bulacan</div>
-            <div class="sub">Municipality of Calumpit</div>
-            <div class="sub">Office of the Calumpit Public Market</div>
-            <h2>EL MERCADO DE CALUMPIT</h2>
+        <div class="header-grid">
+            <div class="logo-box">
+                <img src="uploads/logo_lgu.png" alt="LGU Logo" onerror="this.style.display='none'">
+            </div>
+            <div class="header-text">
+                <div class="republic">Republic of the Philippines</div>
+                <div class="province">Province of Bulacan</div>
+                <div class="municipality">Municipality of Calumpit</div>
+                <div class="office">Office of the Calumpit Public Market</div>
+                <h1 class="market-name">EL MERCADO DE CALUMPIT</h1>
+            </div>
+            <div class="logo-box">
+                <img src="uploads/logo_market.png" alt="Market Logo" onerror="this.style.display='none'">
+            </div>
         </div>
 
         <div class="soa-title">STATEMENT OF ACCOUNT</div>
 
-        <div class="details-box">
-            <div class="details-row">
-                <span class="label">Customer Name:</span>
-                <span class="value"><?php echo strtoupper($renter['renter_name']); ?></span>
-            </div>
-            <div class="details-row">
-                <span class="label">Stall Location:</span>
-                <span class="value">PASILYO <?php echo $renter['pasilyo']; ?> - STALL <?php echo $renter['stall_number']; ?></span>
-            </div>
-            <div class="details-row">
-                <span class="label">Date Issued:</span>
-                <span class="value"><?php echo date('F d, Y'); ?></span>
-            </div>
+        <div class="recipient-box">
+            <table class="info-table">
+                <tr>
+                    <td class="label">Customer Name:</td>
+                    <td class="value"><strong><?php echo strtoupper($renter['renter_name']); ?></strong></td>
+                </tr>
+                <tr>
+                    <td class="label">Stall Location:</td>
+                    <td class="value">PASILYO <?php echo $renter['pasilyo']; ?> - STALL <?php echo $renter['stall_number']; ?></td>
+                </tr>
+                <tr>
+                    <td class="label">Date Issued:</td>
+                    <td class="value"><?php echo date('F d, Y'); ?></td>
+                </tr>
+                <tr>
+                    <td class="label">Subject:</td>
+                    <td class="value">BILLING STATEMENT (<?php echo date('F Y'); ?>)</td>
+                </tr>
+            </table>
         </div>
+
+        <p class="intro-text">
+            We are writing to provide you with a statement of your account for the period covering 
+            <strong><?php echo $period_string; ?></strong>. Please find the details below:
+        </p>
 
         <table class="breakdown">
             <thead>
                 <tr>
-                    <th>PARTICULARS</th>
-                    <th>AMOUNT</th>
+                    <th>DESCRIPTION</th>
+                    <th>PERIOD / DETAILS</th>
+                    <th style="text-align:right;">AMOUNT</th>
                 </tr>
             </thead>
             <tbody>
                 <?php if($goodwill_due > 0): ?>
                 <tr>
-                    <td style="padding: 20px 15px;">
-                        <strong>GOODWILL / RIGHTS FEE</strong><br>
-                        <small>Balance Unpaid</small>
+                    <td><strong>GOODWILL / RIGHTS FEE</strong></td>
+                    <td>
+                        Total Agreement: ₱<?php echo number_format($gw_total, 2); ?><br>
+                        <small>Less: Paid (₱<?php echo number_format($gw_paid, 2); ?>)</small>
                     </td>
-                    <td class="amount-col" style="vertical-align:top; padding-top:20px; font-weight:bold;">
-                        ₱ <?php echo number_format($goodwill_due, 2); ?>
-                    </td>
+                    <td class="amount-col">₱ <?php echo number_format($goodwill_due, 2); ?></td>
                 </tr>
                 <?php endif; ?>
 
+                <?php if($total_due > 0): ?>
                 <tr>
-                    <td style="padding: 20px 15px; vertical-align: top;">
-                        <strong>RENTAL FEE</strong><br><br>
-                        <span style="text-decoration: underline;">Period Covered:</span><br>
-                        <span style="font-weight:bold; font-style:italic; display:block; margin-top:5px;"><?php echo $period_string; ?></span>
-                        <br>
-                        <small>(Computation: <?php echo count($unpaid_months); ?> Months x ₱<?php echo number_format($monthly_rate, 2); ?>)</small>
+                    <td style="vertical-align:top;"><strong>RENTAL FEE</strong></td>
+                    <td>
+                        <?php 
+                            // List first 3 months explicitly, then summarize if too many
+                            $count = 0;
+                            foreach($unpaid_months as $m) {
+                                if($count < 5) echo $m . "<br>";
+                                $count++;
+                            }
+                            if($count >= 5) echo "<i>...and " . ($count-5) . " more months</i>";
+                        ?>
                     </td>
-                    <td class="amount-col" style="vertical-align:top; padding-top:20px; font-weight:bold;">
-                        ₱ <?php echo number_format($total_due, 2); ?>
-                    </td>
+                    <td class="amount-col" style="vertical-align:top;">₱ <?php echo number_format($total_due, 2); ?></td>
                 </tr>
+                <?php endif; ?>
 
-                <tr style="background-color: #f9fafb;">
-                    <td style="text-align:right; font-weight:bold; padding-right: 20px;">TOTAL AMOUNT DUE:</td>
-                    <td class="amount-col" style="font-weight:bold; font-size:18px;">₱ <?php echo number_format($grand_total, 2); ?></td>
+                <tr class="total-row">
+                    <td colspan="2" style="text-align:right; padding-right:15px;">TOTAL AMOUNT DUE:</td>
+                    <td class="amount-col">₱ <?php echo number_format($grand_total, 2); ?></td>
                 </tr>
             </tbody>
         </table>
 
-        <div class="footer">
-            <div class="signatory">
-                <div class="sign-line">Prepared By</div>
-                <small>Billing Staff</small>
+        <div class="bank-details">
+            <h4>BANK DETAILS FOR PAYMENT:</h4>
+            <table>
+                <tr>
+                    <td width="150"><strong>ACCOUNT NAME:</strong></td>
+                    <td>MUNICIPALITY OF CALUMPIT GEN. FUND LOCAL ECONOMIC ENTERPRISE</td>
+                </tr>
+                <tr>
+                    <td><strong>ACCOUNT NUMBER:</strong></td>
+                    <td>(SAVINGS ACCOUNT) 2792-1066-28</td>
+                </tr>
+                <tr>
+                    <td><strong>BANK NAME:</strong></td>
+                    <td>LANDBANK OF THE PHILIPPINES</td>
+                </tr>
+            </table>
+        </div>
+
+        <div class="footer-grid">
+            <div class="sign-box">
+                <div class="role">Prepared By:</div>
+                <br><br>
+                <div class="name">MARY GRACE DOMINGO CARIÑO</div>
+                <div class="title">Market Supervisor Assistant</div>
             </div>
-            <div class="signatory">
-                <div class="sign-line">Approved By</div>
-                <small>Market Administrator</small>
+            <div class="sign-box">
+                <div class="role">Noted By:</div>
+                <br><br>
+                <div class="name">BERNADETTE B. CRUZ, J.D.</div>
+                <div class="title">Municipal Administrator, LGU Calumpit</div>
             </div>
+        </div>
+
+        <div class="notes-section">
+            <strong>NOTE:</strong>
+            <ol>
+                <li>For proof of payment, please visit El Mercado de Calumpit Admin Office.</li>
+                <li>This billing statement is valid for 14 days without contest.</li>
+                <li style="color:red; font-weight:bold;">Failure to pay on or before the 3rd day of the month will result in a penalty fee of 25%.</li>
+            </ol>
+<div class="notes-section">
+            <div style="text-align:center; margin: 15px 0; font-weight:bold; font-size:13px; text-transform:uppercase;">
+                Please make payment of the total balance on or before 28th of the month.
+            </div>
+
+        </div>
+    </div>
         </div>
     </div>
     <div class="page-break"></div>
@@ -155,55 +222,98 @@ function renderSOA($conn, $renter_id) {
     <meta charset="UTF-8">
     <title>Statement of Account</title>
     <style>
-        body { font-family: "Times New Roman", Times, serif; color: #000; margin: 0; padding: 20px; background: #525659; }
-        .page-container { background: white; padding: 40px; max-width: 800px; margin: 0 auto 20px; box-shadow: 0 0 10px rgba(0,0,0,0.5); }
-        .header { text-align: center; margin-bottom: 40px; }
-        .header .sub { font-size: 14px; margin: 2px 0; }
-        .header h2 { font-weight: bold; margin-top: 10px; font-size: 24px; text-transform: uppercase; }
-        .soa-title { text-align: center; font-weight: bold; font-size: 22px; margin: 30px 0; text-decoration: underline; }
-        .details-box { margin-bottom: 30px; font-size: 16px; }
-        .details-row { display: flex; margin-bottom: 8px; }
-        .label { width: 140px; font-weight: bold; }
-        .value { border-bottom: 1px solid #000; flex: 1; padding-left: 10px; font-weight: 600; }
-        .breakdown { width: 100%; border-collapse: collapse; margin-top: 20px; border: 1px solid #000; }
-        .breakdown th, .breakdown td { border: 1px solid #000; padding: 12px; text-align: left; }
-        .breakdown th { background: #f0f0f0; text-align: center; font-weight: bold; }
-        .amount-col { text-align: right; width: 150px; }
-        .footer { margin-top: 60px; display: flex; justify-content: space-between; page-break-inside: avoid; }
-        .signatory { text-align: center; width: 220px; }
-        .sign-line { border-top: 1px solid #000; margin-top: 40px; padding-top: 5px; font-weight: bold; }
-        .print-btn { position: fixed; top: 20px; right: 20px; padding: 10px 20px; background: #3b82f6; color: white; border: none; border-radius: 5px; cursor: pointer; font-family: sans-serif; font-weight: bold; z-index: 999; }
+        body { font-family: "Arial", sans-serif; color: #000; margin: 0; padding: 20px; background: #525659; }
+        
+        .page-container { 
+            background: white; 
+            padding: 40px 50px; 
+            width: 8.5in; 
+            min-height: 11in; 
+            margin: 0 auto 20px; 
+            box-sizing: border-box;
+            position: relative;
+        }
+
+        /* HEADER */
+        .header-grid { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+        .logo-box { width: 100px; height: 100px; text-align: center; }
+        .logo-box img { max-width: 100%; max-height: 100%; }
+        .header-text { text-align: center; flex: 1; }
+        .republic { font-size: 12px; }
+        .province { font-size: 12px; }
+        .municipality { font-size: 14px; font-weight: bold; }
+        .office { font-size: 12px; font-weight: bold; margin-bottom: 5px; }
+        .market-name { font-size: 20px; font-weight: 900; margin: 0; color: #b91c1c; text-transform: uppercase; }
+
+        .soa-title { 
+            text-align: center; 
+            font-weight: bold; 
+            font-size: 18px; 
+            margin: 20px 0; 
+            text-decoration: underline; 
+            letter-spacing: 1px;
+        }
+
+        /* RECIPIENT BOX */
+        .recipient-box { margin-bottom: 20px; border: 1px solid #000; padding: 10px; }
+        .info-table { width: 100%; font-size: 12px; }
+        .info-table td { padding: 3px; }
+        .info-table .label { width: 120px; font-weight: bold; }
+        
+        .intro-text { font-size: 12px; margin-bottom: 15px; }
+
+        /* MAIN TABLE */
+        .breakdown { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 20px; }
+        .breakdown th, .breakdown td { border: 1px solid #000; padding: 8px; }
+        .breakdown th { background: #f3f4f6; text-align: center; }
+        .amount-col { text-align: right; font-weight: bold; width: 120px; }
+        .total-row { background: #e5e7eb; font-weight: bold; }
+
+        /* BANK DETAILS */
+        .bank-details { margin-bottom: 30px; border: 1px dashed #000; padding: 10px; font-size: 11px; }
+        .bank-details h4 { margin: 0 0 5px; text-decoration: underline; }
+        .bank-details table { width: 100%; }
+        .bank-details td { padding: 2px; }
+
+        /* FOOTER */
+        .footer-grid { display: flex; justify-content: space-between; margin-top: 40px; margin-bottom: 30px; }
+        .sign-box { width: 45%; text-align: center; }
+        .sign-box .role { text-align: left; font-size: 12px; margin-bottom: 30px; }
+        .sign-box .name { font-weight: bold; text-decoration: underline; font-size: 13px; text-transform: uppercase; }
+        .sign-box .title { font-size: 11px; }
+
+        /* NOTES */
+        .notes-section { font-size: 10px; border-top: 2px solid #000; padding-top: 10px; }
+        .notes-section ol { padding-left: 20px; margin: 5px 0; }
+
+        .print-btn { position: fixed; top: 20px; right: 20px; padding: 10px 20px; background: #3b82f6; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
         
         @media print { 
             body { background: white; padding: 0; }
-            .page-container { box-shadow: none; margin: 0; width: 100%; max-width: none; padding: 20px; }
+            .page-container { margin: 0; width: 100%; padding: 30px; box-shadow: none; border: none; }
             .print-btn { display: none; }
             .page-break { page-break-after: always; }
         }
     </style>
 </head>
 <body>
-    <button class="print-btn" onclick="window.print()">PRINT ALL</button>
+    <button class="print-btn" onclick="window.print()">🖨️ PRINT REPORTS</button>
 
     <?php
     if (isset($_GET['bulk']) && $_GET['bulk'] == 'true') {
-        // BULK MODE: Find all occupied stalls
         $ids = [];
         $result = $conn->query("SELECT renter_id FROM renters WHERE end_date IS NULL");
         while($row = $result->fetch_assoc()) $ids[] = $row['renter_id'];
         
         if(count($ids) > 0) {
-            foreach ($ids as $rid) {
-                renderSOA($conn, $rid);
-            }
+            foreach ($ids as $rid) renderSOA($conn, $rid);
         } else {
-            echo "<div style='text-align:center; padding:50px; color:white;'>No active tenants found.</div>";
+            echo "<div style='text-align:center; padding:50px;'>No active tenants.</div>";
         }
     } else {
-        // SINGLE MODE
         $id = $_GET['id'] ?? 0;
         if($id) renderSOA($conn, $id);
-        else echo "<div style='text-align:center; padding:50px; color:white;'>Tenant not found.</div>";
+        else echo "<div style='text-align:center; padding:50px;'>Tenant not found.</div>";
     }
     ?>
 </body>

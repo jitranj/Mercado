@@ -45,15 +45,97 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <title>Login - Mall Monitor</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
-        body { background: #f1f5f9; font-family: 'Inter', sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
-        .login-card { background: white; padding: 40px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); width: 100%; max-width: 400px; text-align: center; }
-        h1 { margin: 0 0 10px; color: #0f172a; font-size: 24px; font-weight: 700; }
-        p { color: #64748b; margin-bottom: 30px; font-size: 14px; }
-        input { width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; font-size: 14px; transition: 0.2s; }
-        input:focus { border-color: #3b82f6; outline: none; box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
-        button { width: 100%; padding: 12px; background: #3b82f6; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; transition: 0.2s; }
-        button:hover { background: #2563eb; }
-        .error { color: #ef4444; background: #fef2f2; border: 1px solid #fecaca; padding: 10px; border-radius: 6px; font-size: 13px; margin-bottom: 20px; display: block; }
+        body { 
+            background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%); 
+            font-family: 'Inter', sans-serif; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            height: 100vh; 
+            margin: 0; 
+            color: #e2e8f0; 
+        }
+        .login-card { 
+            background: rgba(255, 255, 255, 0.05); 
+            backdrop-filter: blur(20px); 
+            padding: 50px; 
+            border-radius: 20px; 
+            border: 1px solid rgba(255, 255, 255, 0.1); 
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3); 
+            width: 100%; 
+            max-width: 420px; 
+            text-align: center; 
+            position: relative; 
+        }
+        .login-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(168, 85, 247, 0.1) 100%);
+            border-radius: 20px;
+            z-index: -1;
+        }
+        h1 { 
+            margin: 0 0 15px; 
+            color: #f1f5f9; 
+            font-size: 28px; 
+            font-weight: 700; 
+            text-shadow: 0 0 20px rgba(99, 102, 241, 0.5); 
+        }
+        p { 
+            color: #cbd5e1; 
+            margin-bottom: 35px; 
+            font-size: 15px; 
+        }
+        input { 
+            width: 100%; 
+            padding: 15px; 
+            margin-bottom: 20px; 
+            border: 1px solid rgba(255, 255, 255, 0.2); 
+            border-radius: 12px; 
+            box-sizing: border-box; 
+            font-size: 15px; 
+            background: rgba(255, 255, 255, 0.05); 
+            color: #e2e8f0; 
+            transition: all 0.3s ease; 
+        }
+        input::placeholder { color: #94a3b8; }
+        input:focus { 
+            border-color: #6366f1; 
+            outline: none; 
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2); 
+            background: rgba(255, 255, 255, 0.1); 
+        }
+        button { 
+            width: 100%; 
+            padding: 15px; 
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); 
+            color: white; 
+            border: none; 
+            border-radius: 12px; 
+            font-weight: 600; 
+            cursor: pointer; 
+            transition: all 0.3s ease; 
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3); 
+        }
+        button:hover { 
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); 
+            box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4); 
+            transform: translateY(-2px); 
+        }
+        .error { 
+            color: #f87171; 
+            background: rgba(239, 68, 68, 0.1); 
+            border: 1px solid rgba(239, 68, 68, 0.2); 
+            padding: 12px; 
+            border-radius: 8px; 
+            font-size: 14px; 
+            margin-bottom: 25px; 
+            display: block; 
+        }
     </style>
 </head>
 <body>

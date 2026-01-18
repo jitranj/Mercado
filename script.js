@@ -1,18 +1,89 @@
-/* script.js */
+/* script.js - COMPLETE VERSION (Toasts + OR Logic + Charts + Strict Rent) */
 
+// --- 1. TOAST NOTIFICATION SYSTEM ---
+function showToast(message, type = 'success') {
+    // Create container if it doesn't exist yet
+    let container = document.getElementById('toast-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'toast-container';
+        document.body.appendChild(container);
+    }
+
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+
+    const icon = type === 'success' ? '✅' : (type === 'error' ? '❌' : 'ℹ️');
+
+    toast.innerHTML = `<span style="font-size:18px;">${icon}</span> <span>${message}</span>`;
+    container.appendChild(toast);
+
+    // Remove after 3 seconds
+    setTimeout(() => {
+        toast.style.animation = 'fadeOut 0.3s forwards';
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
+}
+
+// --- 2. PAYMENT FORM HELPERS (STRICT MODE) ---
+function toggleMonthInput() {
+    const type = document.getElementById('payType').value;
+    const rentGroup = document.getElementById('rentInfoGroup');
+    const amountInput = document.getElementById('payAmount');
+    const orGroup = document.getElementById('orFieldGroup'); // Matches the new ID in index.php
+
+    if (type === 'rent') {
+        // RENT: Show Rent Info & OR Number
+        rentGroup.style.display = 'block';
+        if(orGroup) orGroup.style.display = 'block';
+        
+        // Lock Amount
+        amountInput.value = window.currentStallRate || 0;
+        amountInput.readOnly = true; 
+        amountInput.style.backgroundColor = "#f1f5f9"; 
+        amountInput.style.cursor = "not-allowed";
+        
+        // Lock Month Input if it exists
+        const mInput = document.getElementById('payMonth');
+        if(mInput) {
+            mInput.readOnly = true;
+            mInput.style.backgroundColor = "#f1f5f9";
+        }
+    } else {
+        // GOODWILL: Hide Rent Info & OR Number
+        rentGroup.style.display = 'none';
+        if(orGroup) orGroup.style.display = 'none';
+        
+        // Unlock Amount
+        amountInput.value = '';
+        amountInput.readOnly = false;
+        amountInput.style.backgroundColor = "white";
+        amountInput.style.cursor = "text";
+        amountInput.placeholder = "Enter Amount";
+    }
+}
+
+// --- 3. NAVIGATION & UI TOGGLES ---
 function switchFloor(f) {
     document.querySelectorAll('.floor-view').forEach(el => el.classList.remove('active'));
     document.querySelectorAll('.toggle-btn[id^="btn-f"]').forEach(el => el.classList.remove('active'));
-    document.getElementById('floor-'+f).classList.add('active');
-    document.getElementById('btn-f'+f).classList.add('active');
-}
-function toggleMode(btn, mode) {
-    if(mode === 'payment') document.body.classList.add('mode-payment');
-    else document.body.classList.remove('mode-payment');
-    btn.parentElement.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
+    document.getElementById('floor-' + f).classList.add('active');
+    document.getElementById('btn-f' + f).classList.add('active');
 }
 
+function toggleMode(btn, mode) {
+    if (mode === 'payment') document.body.classList.add('mode-payment');
+    else document.body.classList.remove('mode-payment');
+
+    // Handle active state for sidebar/topbar buttons
+    if (btn) {
+        const parent = btn.closest('.toggle-group') || btn.parentElement;
+        parent.querySelectorAll('.toggle-btn, .nav-item').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+    }
+}
+
+// --- 4. ANALYTICS & CHARTS ENGINE ---
 let chartInstance = null;
 let currentChartType = 'bar';
 
@@ -23,33 +94,34 @@ function openAnalytics() {
 
 function updateAnalytics() {
     const period = document.getElementById('reportPeriod').value;
+
     fetch(`api_analytics.php?period=${period}`)
         .then(r => r.json())
         .then(data => {
+            // Update KPIs
             animateValue('kpiRevenue', 0, parseInt(data.revenue_month), 1000, '₱');
             animateValue('kpiOccupancy', 0, parseFloat(data.occupancy.rate), 1000, '%');
             document.getElementById('kpiOccDetail').innerText = `${data.occupancy.occupied}/${data.occupancy.total} Units`;
             animateValue('kpiVacant', 0, data.occupancy.vacant, 1000, '');
             animateValue('kpiCritical', 0, data.red_list.length, 1000, '');
 
+            // Update Red List Table
             const redList = document.getElementById('redListBody');
             redList.innerHTML = '';
-            if(data.red_list.length > 0) {
-                data.red_list.forEach((item, index) => {
+
+            if (data.red_list && data.red_list.length > 0) {
+                data.red_list.forEach((item) => {
                     const row = document.createElement('tr');
                     row.style.borderBottom = '1px solid #f1f5f9';
-                    row.style.transition = 'all 0.2s';
                     row.style.cursor = 'pointer';
-                    row.onmouseover = () => row.style.background = '#f8fafc';
-                    row.onmouseout = () => row.style.background = 'transparent';
-                    row.onclick = () => openModal(item.stall_id);
+                    row.onclick = () => {
+                        document.getElementById('analyticsModal').style.display = 'none';
+                        setTimeout(() => openModal(item.stall_id), 300); // Jump to stall
+                    };
                     row.innerHTML = `
                         <td style="padding:12px 8px;">
-                            <div style="font-weight:700; color:#1e293b; display:flex; align-items:center; gap:8px;">
-                                <span style="width:8px; height:8px; background:#ef4444; border-radius:50%;"></span>
-                                ${item.renter_name}
-                            </div>
-                            <div style="color:#64748b; font-size:11px; margin-top:2px;">${item.pasilyo} #${item.stall_number}</div>
+                            <div style="font-weight:700; color:#1e293b;">${item.renter_name}</div>
+                            <div style="color:#64748b; font-size:11px;">${item.pasilyo} #${item.stall_number}</div>
                         </td>
                         <td style="color:#ef4444; font-weight:700; text-align:right; padding:12px 8px;">
                             ${item.months_due} Mos
@@ -58,17 +130,21 @@ function updateAnalytics() {
                     redList.appendChild(row);
                 });
             } else {
-                redList.innerHTML = '<tr><td colspan="2" style="padding:40px; text-align:center; color:#10b981; font-style:italic; font-size:14px;">🎉 All tenants are in good standing!</td></tr>';
+                redList.innerHTML = '<tr><td colspan="2" style="padding:20px; text-align:center; color:#10b981;">🎉 All accounts are healthy!</td></tr>';
             }
 
-            updateChart(data.revenue_trend);
+            // Update Chart
+            if (data.revenue_trend) updateChart(data.revenue_trend);
         })
-        .catch(err => console.error("Analytics Error:", err));
+        .catch(err => {
+            console.error("Analytics Error:", err);
+            showToast("Failed to load analytics data", "error");
+        });
 }
 
 function updateChart(revenueData) {
     const ctx = document.getElementById('revenueChart').getContext('2d');
-    if(chartInstance) chartInstance.destroy();
+    if (chartInstance) chartInstance.destroy();
 
     const labels = revenueData.map(d => d.month);
     const values = revenueData.map(d => parseInt(d.amount) || 0);
@@ -82,56 +158,26 @@ function updateChart(revenueData) {
         data: {
             labels: labels,
             datasets: [{
-                label: 'Monthly Income',
+                label: 'Income',
                 data: values,
                 backgroundColor: currentChartType === 'bar' ? gradient : 'rgba(59, 130, 246, 0.8)',
                 borderColor: '#3b82f6',
                 borderWidth: 2,
                 fill: currentChartType === 'line',
-                tension: 0.4,
-                pointBackgroundColor: '#3b82f6',
-                pointBorderColor: '#ffffff',
-                pointBorderWidth: 2,
-                pointRadius: 6,
-                pointHoverRadius: 8
+                tension: 0.4
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            animation: {
-                duration: 1000,
-                easing: 'easeOutQuart'
-            },
-            plugins: {
-                legend: { display: false },
-                tooltip: {
-                    backgroundColor: 'rgba(0,0,0,0.8)',
-                    titleColor: '#ffffff',
-                    bodyColor: '#ffffff',
-                    callbacks: {
-                        label: function(context) {
-                            return ' ₱ ' + context.raw.toLocaleString();
-                        }
-                    }
-                }
-            },
+            plugins: { legend: { display: false } },
             scales: {
                 y: {
                     beginAtZero: true,
-                    grid: { color: 'rgba(0,0,0,0.05)' },
-                    ticks: {
-                        callback: function(value) {
-                            return '₱' + (value/1000).toFixed(0) + 'k';
-                        },
-                        font: { size: 11 }
-                    },
-                    border: { display: false }
-                },
-                x: {
                     grid: { display: false },
-                    ticks: { font: { size: 11 } }
-                }
+                    ticks: { callback: (val) => '₱' + (val / 1000) + 'k' }
+                },
+                x: { grid: { display: false } }
             }
         }
     });
@@ -141,43 +187,38 @@ function toggleChartType(type) {
     currentChartType = type;
     document.getElementById('chartTypeBar').style.background = type === 'bar' ? '#3b82f6' : '#e2e8f0';
     document.getElementById('chartTypeBar').style.color = type === 'bar' ? 'white' : '#64748b';
+
     document.getElementById('chartTypeLine').style.background = type === 'line' ? '#3b82f6' : '#e2e8f0';
     document.getElementById('chartTypeLine').style.color = type === 'line' ? 'white' : '#64748b';
+
     updateAnalytics();
 }
 
-function animateValue(id, start, end, duration, prefix = '', suffix = '') {
+function animateValue(id, start, end, duration, prefix = '') {
     const obj = document.getElementById(id);
+    if (!obj) return;
     const range = end - start;
     const minTimer = 50;
     const stepTime = Math.abs(Math.floor(duration / range));
     const timer = stepTime < minTimer ? minTimer : stepTime;
+    let current = start;
 
-    const startTime = new Date().getTime();
-    const endTime = startTime + duration;
-
-    function run() {
-        const now = new Date().getTime();
-        const remaining = Math.max((endTime - now) / duration, 0);
-        const value = Math.round(end - (remaining * range));
-        obj.innerText = prefix + value.toLocaleString() + suffix;
-        if (value == end) {
-            clearInterval(timerId);
-        }
-    }
-
-    const timerId = setInterval(run, timer);
-    run();
+    const step = () => {
+        current += (end > start ? 1 : -1) * Math.ceil(range / (duration / minTimer));
+        if ((end > start && current >= end) || (end < start && current <= end)) current = end;
+        obj.innerText = prefix + current.toLocaleString();
+        if (current !== end) setTimeout(step, timer);
+    };
+    step();
 }
 
+// --- 5. EXPORTS & ADMIN ACTIONS ---
+
 function exportReport() {
-    // OLD: window.open('api_admin.php?action=export_dashboard', '_blank');
-    // NEW: Opens the beautiful Printable Report
     window.open('report_print.php?type=dashboard', '_blank');
 }
 
 function viewAllDelinquents() {
-    // Opens the full printable Red List report
     window.open('report_print.php?type=red_list', '_blank');
 }
 
@@ -186,10 +227,10 @@ function generateSOAReport() {
 }
 
 function sendPaymentReminders() {
-    if(confirm('Send payment reminders to all delinquent tenants?')) {
+    if (confirm('Send payment reminders to all delinquent tenants?')) {
         fetch('api_admin.php?action=send_reminders', { method: 'POST' })
             .then(r => r.json())
-            .then(d => alert(d.message || 'Reminders sent successfully!'));
+            .then(d => showToast(d.message || 'Reminders queued!', 'success'));
     }
 }
 
@@ -202,155 +243,372 @@ function openSettings() {
 }
 
 function switchTab(tabId, btn) {
-    document.querySelectorAll('.settings-content').forEach(c => { c.classList.remove('active'); c.style.display = 'none'; });
-    document.querySelectorAll('.s-tab').forEach(t => { t.classList.remove('active'); t.style.background = 'transparent'; t.style.color = '#334155'; });
+    document.querySelectorAll('.settings-content').forEach(c => {
+        c.classList.remove('active');
+        c.style.display = 'none';
+    });
+    document.querySelectorAll('.s-tab').forEach(t => {
+        t.classList.remove('active');
+        t.style.background = 'transparent';
+        t.style.color = '#64748b';
+    });
+
     const el = document.getElementById(tabId);
-    if (el) { el.classList.add('active'); el.style.display = 'block'; }
-    if (btn) { btn.classList.add('active'); btn.style.background = '#1e293b'; btn.style.color = 'white'; }
+    if (el) {
+        el.classList.add('active');
+        el.style.display = 'block';
+    }
+    if (btn) {
+        btn.classList.add('active');
+        btn.style.background = '#1e293b';
+        btn.style.color = 'white';
+    }
 }
 
 function changePass() {
     const formData = new FormData(document.getElementById('passForm'));
-    fetch('api_admin.php', { method: 'POST', body: formData }).then(r=>r.json()).then(d => {
-        if(d.success) { alert("Password Updated"); document.getElementById('settingsModal').style.display='none'; }
-        else alert("Error");
-    });
+    fetch('api_admin.php', { method: 'POST', body: formData })
+        .then(r => r.json())
+        .then(d => {
+            if (d.success) {
+                showToast("Password Updated Successfully", "success");
+                document.getElementById('passForm').reset();
+            } else {
+                showToast("Error: " + (d.message || "Unknown error"), "error");
+            }
+        })
+        .catch(err => showToast("Server Error", "error"));
 }
 
 function addUser() {
     const form = document.getElementById('userForm');
     const formData = new FormData(form);
-    
-    // 1. Client-Side Check: Password Length
+
     const pass = formData.get('password');
     if (pass.length < 8) {
-        alert("⚠️ Password too short! Must be at least 8 characters.");
+        showToast("Password too short! Min 8 chars.", "error");
         return;
     }
 
-    // 2. Server Request with Error Catching
     fetch('api_admin.php', { method: 'POST', body: formData })
-        .then(r => r.text()) // Get raw text first to catch PHP errors
+        .then(r => r.text())
         .then(text => {
-            console.log("Server Response:", text); // See exact error in Console (F12)
             try {
-                const d = JSON.parse(text); // Try to parse JSON
-                if(d.success) { 
-                    alert("✅ User Created Successfully!"); 
-                    form.reset(); 
-                } else { 
-                    alert("❌ Failed: " + (d.message || "Unknown Error")); 
+                const d = JSON.parse(text);
+                if (d.success) {
+                    showToast("User Created Successfully!", "success");
+                    form.reset();
+                } else {
+                    showToast("Failed: " + (d.message || "DB Error"), "error");
                 }
             } catch (e) {
-                // If parsing fails, it means PHP crashed or printed text
-                alert("❌ Critical Error: Check Console (F12) for details.\n\nServer said:\n" + text.substring(0, 100) + "...");
+                console.error(text);
+                showToast("Server Error: Check Console", "error");
             }
-        })
-        .catch(err => alert("Network Error: " + err));
+        });
 }
 
 function openModal(id) {
-    if(!id) return;
+    if (!id) return;
     document.getElementById('stallModal').style.display = 'block';
-    fetch(`api_stall_details.php?id=${id}`).then(r=>r.json()).then(d => {
+
+    // Reset Views
+    document.getElementById('renterDetails').style.display = 'none';
+    document.getElementById('emptyState').style.display = 'none';
+    document.getElementById('paymentForm').style.display = 'none';
+
+    document.getElementById('newTenantForm').style.display = 'none';
+    document.getElementById('reserveForm').style.display = 'none';
+    
+    // Clear any previous injected reservation/goodwill panels
+    if (document.getElementById('goodwillInfo')) document.getElementById('goodwillInfo').remove();
+    if (document.getElementById('paidUpBadge')) document.getElementById('paidUpBadge').remove();
+    if (document.getElementById('reservationPanel')) document.getElementById('reservationPanel').remove();
+
+    fetch(`api_stall_details.php?id=${id}`).then(r => r.json()).then(d => {
         window.currentStallId = id;
         window.currentRenterId = d.renter ? d.renter.id : null;
+        window.currentStallRate = d.stall.rate;
+
         document.getElementById('modalTitle').innerText = "Stall " + d.stall.number;
 
-        const btnAssign = document.getElementById('btnAssign');
+        // Button Refs
         const btnPay = document.getElementById('btnRecordPay');
         const btnTerm = document.getElementById('btnTerminate');
         const btnContract = document.getElementById('btnViewContract');
         const btnSOA = document.getElementById('btnGenerateSOA');
+        const btnAssign = document.getElementById('btnAssign');
 
-        if(d.stall.status === 'occupied' && d.renter) {
-            document.getElementById('renterDetails').style.display = 'block';
-            document.getElementById('emptyState').style.display = 'none';
-            document.getElementById('rName').innerText = d.renter.name;
-            document.getElementById('rContact').innerText = d.renter.contact;
-            
-            let img = (d.renter.image && d.renter.image !== 'null') ? d.renter.image : `https://ui-avatars.com/api/?name=${d.renter.name}&background=random`;
-            document.getElementById('mImage').src = img;
-            document.getElementById('modalProfilePic').style.display = 'block';
-
-            if(d.renter.contract && d.renter.contract !== 'null') {
-                btnContract.style.display = 'block';
-                btnContract.onclick = () => window.open(d.renter.contract, '_blank');
-            } else {
+        if (d.renter) {
+            // === 1. CHECK IF RESERVATION ===
+            if (d.renter.is_reservation == 1) {
+                document.getElementById('renterDetails').style.display = 'block';
+                document.getElementById('rName').innerText = d.renter.name + " (Applicant)";
+                document.getElementById('rContact').innerText = d.renter.contact;
+                
+                // Hide Standard Tenant Buttons
+                btnPay.style.display = 'none';
+                btnTerm.style.display = 'none';
                 btnContract.style.display = 'none';
-            }
-
-            // WE USE THE GLOBAL USER_ROLE HERE
-            btnPay.style.display = (USER_ROLE === 'admin' || USER_ROLE === 'staff_cashier') ? 'block' : 'none';
-            btnTerm.style.display = (USER_ROLE === 'admin') ? 'block' : 'none';
-            if(USER_ROLE === 'admin' || USER_ROLE === 'staff_billing') {
-                btnSOA.style.display = 'block';
-                btnSOA.onclick = () => window.open(`soa_print.php?id=${d.renter.id}`, '_blank');
-            } else {
                 btnSOA.style.display = 'none';
+                
+                // Inject Reservation Controls
+                const resPanel = document.createElement('div');
+                resPanel.id = 'reservationPanel';
+                resPanel.style.cssText = "background:#fffbeb; border:1px solid #fcd34d; padding:20px; border-radius:8px; text-align:center; margin-top:20px;";
+                resPanel.innerHTML = `
+                    <h3 style="margin:0 0 10px 0; color:#b45309;">⚠️ RESERVATION PENDING</h3>
+                    <p style="font-size:13px; color:#78350f; margin-bottom:15px;">
+                        This unit is reserved. Please approve to convert to Official Tenant, or cancel to open the unit.
+                    </p>
+                    <div style="display:flex; gap:10px; justify-content:center;">
+                        <button onclick="startApproval()" style="padding:12px 20px; background:#10b981; color:white; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">
+                            ✅ Approve
+                        </button>
+                        <button onclick="processReservation('cancel')" style="padding:12px 20px; background:#ef4444; color:white; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">
+                            ❌ Reject
+                        </button>
+                    </div>
+                `;
+                document.getElementById('renterDetails').appendChild(resPanel);
+                
+                // Show Profile Pic if any
+                let img = (d.renter.image && d.renter.image !== 'null') ? d.renter.image : `https://ui-avatars.com/api/?name=${d.renter.name}&background=random`;
+                document.getElementById('mImage').src = img;
+                document.getElementById('modalProfilePic').style.display = 'block';
+
+            } else {
+                // === 2. STANDARD OCCUPIED TENANT ===
+                document.getElementById('renterDetails').style.display = 'block';
+                document.getElementById('rName').innerText = d.renter.name;
+                document.getElementById('rContact').innerHTML = d.renter.contact + 
+                    (d.renter.email ? `<br><span style="font-size:12px; color:#3b82f6;">${d.renter.email}</span>` : '');
+                document.getElementById('rDate').innerText = "Start Date: " + (d.renter.since || "N/A");
+                const nextDue = d.renter.next_due;
+                const today = new Date().toISOString().slice(0, 7);
+
+                document.getElementById('payMonth').value = nextDue;
+                document.getElementById('payAmount').value = d.stall.rate;
+
+                if (nextDue > today) {
+                    btnPay.style.display = 'none';
+                    let badge = document.createElement('div');
+                    badge.id = 'paidUpBadge';
+                    badge.innerHTML = "✅ RENT UP TO DATE";
+                    badge.style.cssText = "background:#dcfce7; color:#166534; padding:12px; border-radius:8px; font-weight:700; text-align:center; margin-bottom:15px; border:1px solid #bbf7d0; font-size:14px;";
+                    document.getElementById('renterDetails').insertBefore(badge, btnPay);
+                } else {
+                    btnPay.style.display = (USER_ROLE === 'admin' || USER_ROLE === 'staff_cashier') ? 'block' : 'none';
+                    btnPay.innerText = "Pay Bill for: " + nextDue;
+                }
+
+                // Goodwill Panel
+                const gw = d.renter.goodwill;
+                if (gw && gw.balance > 0) {
+                    const gwDiv = document.createElement('div');
+                    gwDiv.id = 'goodwillInfo';
+                    gwDiv.style.cssText = "background:#fff7ed; border:1px solid #fdba74; color:#9a3412; padding:10px; border-radius:6px; margin-bottom:15px; font-size:12px; text-align:center;";
+                    gwDiv.innerHTML = `
+                        <div style="font-weight:800; font-size:13px;">⚠️ GOODWILL BALANCE: ₱${gw.balance.toLocaleString()}</div>
+                        <div style="font-size:11px; opacity:0.9;">
+                            Agreement: ₱${gw.total.toLocaleString()} | Paid: ₱${gw.paid.toLocaleString()}
+                        </div>
+                    `;
+                    document.getElementById('rName').insertAdjacentElement('afterend', gwDiv);
+                }
+
+                let img = (d.renter.image && d.renter.image !== 'null') ? d.renter.image : `https://ui-avatars.com/api/?name=${d.renter.name}&background=random`;
+                document.getElementById('mImage').src = img;
+                document.getElementById('modalProfilePic').style.display = 'block';
+
+                if (d.renter.contract && d.renter.contract !== 'null') {
+                    btnContract.style.display = 'block';
+                    btnContract.onclick = () => window.open(d.renter.contract, '_blank');
+                } else btnContract.style.display = 'none';
+
+                btnTerm.style.display = (USER_ROLE === 'admin') ? 'block' : 'none';
+
+                if (USER_ROLE === 'admin' || USER_ROLE === 'staff_billing') {
+                    btnSOA.style.display = 'block';
+                    btnSOA.onclick = () => window.open(`soa_print.php?id=${d.renter.id}`, '_blank');
+                } else btnSOA.style.display = 'none';
             }
 
+            // HISTORY TABLE (Common for both)
             let hHtml = '';
-            d.history.forEach(h => { hHtml += `<tr><td style="padding:5px 0;">${h.month_paid_for}</td><td>₱${h.amount}</td></tr>`; });
-            document.getElementById('historyList').innerHTML = hHtml || '<tr><td colspan="2">No records</td></tr>';
+            d.history.forEach(h => {
+                let label = '';
+                let amtStyle = 'font-weight:bold;';
+
+                if (h.payment_type === 'goodwill') {
+                    label = `<span style="background:#ffedd5; color:#c2410c; padding:2px 6px; border-radius:4px; font-size:10px; font-weight:800;">GW</span>`;
+                    amtStyle += 'color:#c2410c;';
+                } else {
+                    label = `<span style="background:#dbeafe; color:#1e40af; padding:2px 6px; border-radius:4px; font-size:10px; font-weight:800;">RENT</span> 
+                             <span style="font-size:11px; color:#64748b; margin-left:4px;">${h.month_paid_for}</span>`;
+                }
+
+                hHtml += `
+                    <tr style="border-bottom:1px solid #f1f5f9;">
+                        <td style="padding:10px 0;">
+                            ${label}
+                            <div style="font-size:10px; color:#94a3b8; margin-top:3px; font-family:monospace;">
+                                OR# ${h.or_no || 'N/A'}
+                            </div>
+                        </td>
+                        <td style="text-align:right; ${amtStyle}">₱${parseInt(h.amount).toLocaleString()}</td>
+                    </tr>`;
+            });
+            document.getElementById('historyList').innerHTML = hHtml || '<tr><td colspan="2" style="text-align:center; padding:15px; color:#94a3b8;">No payment history</td></tr>';
+
         } else {
+            // === 3. VACANT ===
             document.getElementById('renterDetails').style.display = 'none';
             document.getElementById('modalProfilePic').style.display = 'none';
             document.getElementById('emptyState').style.display = 'block';
             document.getElementById('historyList').innerHTML = '';
-            btnAssign.style.display = (USER_ROLE === 'admin' || USER_ROLE === 'staff_cashier') ? 'block' : 'none';
+            btnAssign.style.display = (USER_ROLE === 'admin' || USER_ROLE === 'manager') ? 'block' : 'none';
         }
-    }).catch(e => console.error(e));
+    }).catch(e => { console.error(e); showToast("Error loading details", "error"); });
 }
 
-function closeModal() { document.getElementById('stallModal').style.display = 'none'; }
-window.onclick = e => { 
-    if(e.target == document.getElementById('stallModal')) closeModal(); 
-    if(e.target == document.getElementById('settingsModal')) document.getElementById('settingsModal').style.display='none';
+function closeModal() {
+    document.getElementById('stallModal').style.display = 'none';
+}
+
+// Window Click Handlers
+window.onclick = e => {
+    if (e.target == document.getElementById('stallModal')) closeModal();
+    if (e.target == document.getElementById('settingsModal')) document.getElementById('settingsModal').style.display = 'none';
 };
 
-function togglePayForm() { 
-    const f = document.getElementById('paymentForm'); 
-    f.style.display = f.style.display==='none' ? 'block' : 'none'; 
-    if(f.style.display==='block') document.getElementById('payRenterId').value = window.currentRenterId;
-}
-function toggleTenantForm() { 
-    const f = document.getElementById('newTenantForm'); 
-    f.style.display = f.style.display==='none' ? 'block' : 'none'; 
-    if(f.style.display==='block') document.getElementById('wizardStallId').value = window.currentStallId;
+// --- 7. FORMS & SUBMISSIONS ---
+
+function togglePayForm() {
+    const f = document.getElementById('paymentForm');
+    f.style.display = f.style.display === 'none' ? 'block' : 'none';
+    if (f.style.display === 'block') {
+        document.getElementById('payRenterId').value = window.currentRenterId;
+        toggleMonthInput(); // Initialize logic
+    }
 }
 
-function submitPayment() { fetch('api_add_payment.php', { method:'POST', body:new FormData(document.getElementById('payForm')) }).then(r=>r.json()).then(d=> { if(d.success) { alert("Saved"); location.reload(); } }); }
-function submitNewTenant() { fetch('api_assign_tenant.php', { method:'POST', body:new FormData(document.getElementById('tenantForm')) }).then(r=>r.json()).then(d=> { if(d.success) { location.reload(); } else { alert(d.message); } }); }
-function terminateContract() { 
-    if(confirm("Terminate?")) {
+function toggleTenantForm() {
+    // 1. Force Close the Reserve Form if it is open
+    const r = document.getElementById('reserveForm');
+    if (r) r.style.display = 'none';
+
+    // 2. Toggle the Tenant Form
+    const f = document.getElementById('newTenantForm');
+    f.style.display = f.style.display === 'none' ? 'block' : 'none';
+    
+    if (f.style.display === 'block') {
+        document.getElementById('wizardStallId').value = window.currentStallId;
+        document.getElementById('wizReservationId').value = 0; // Reset ID
+        document.getElementById('tenantForm').reset(); // Clear old inputs
+    }
+}
+
+function submitPayment() { 
+    const form = document.getElementById('payForm');
+    const formData = new FormData(form);
+    
+    // NEW VALIDATION LOGIC
+    const type = formData.get('payment_type');
+    const or_no = formData.get('or_no');
+
+    // Only scream about OR Number if it's RENT
+    if(type === 'rent' && (!or_no || or_no.trim() === '')) {
+        showToast("⚠️ OR Number is required for Rent!", "error");
+        return;
+    }
+
+    fetch('api_add_payment.php', { method:'POST', body:formData })
+    .then(r=>r.json()).then(d=> { 
+        if(d.success) { 
+            showToast("Payment Recorded!", "success"); 
+            setTimeout(() => location.reload(), 1200); 
+        } else { 
+            showToast(d.message || "Error", "error"); 
+        } 
+    })
+    .catch(e => { console.error(e); showToast("Network Error", "error"); });
+}
+
+function submitNewTenant() {
+    const fd = new FormData(document.getElementById('tenantForm'));
+    fetch('api_assign_tenant.php', { method: 'POST', body: fd })
+        .then(r => r.json())
+        .then(d => {
+            if (d.success) {
+                showToast("Tenant Assigned Successfully!", "success");
+                setTimeout(() => location.reload(), 1200);
+            } else {
+                showToast(d.message || "Error assigning tenant", "error");
+            }
+        });
+}
+
+function terminateContract() {
+    if (confirm("Are you sure you want to terminate this contract?")) {
         const fd = new FormData();
         fd.append('renter_id', window.currentRenterId);
         fd.append('stall_id', window.currentStallId);
-        fetch('api_terminate.php', { method:'POST', body:fd }).then(r=>r.json()).then(d=> { location.reload(); }); 
+        fetch('api_terminate.php', { method: 'POST', body: fd })
+            .then(r => r.json())
+            .then(d => {
+                if (d.success) {
+                    showToast("Contract Terminated", "success");
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    showToast("Error terminating", "error");
+                }
+            });
     }
 }
+
+// --- 8. SEARCH & HOVER LOGIC (Preserved) ---
 
 let sTimer;
 function liveSearch() {
     const q = document.getElementById('searchInput').value;
     const res = document.getElementById('searchResults');
     clearTimeout(sTimer);
-    if(q.length < 2) { res.style.display='none'; return; }
+
+    if (q.length < 2) { res.style.display = 'none'; return; }
+
     sTimer = setTimeout(() => {
-        fetch(`api_search.php?q=${q}`).then(r=>r.json()).then(d => {
-            res.innerHTML = '';
-            if(d.length > 0) {
-                res.style.display = 'block';
-                d.forEach(i => {
-                    const div = document.createElement('div');
-                    div.style.cssText = "padding:10px; cursor:pointer; border-bottom:1px solid #0b0a0a; font-size:12px; display:flex; gap:10px; align-items:center;";
-                    div.innerHTML = `<img src="${i.img||'default_avatar.png'}" style="width:24px; height:24px; border-radius:50%;"> <b>${i.label}</b>`;
-                    div.onclick = () => { switchFloor(i.floor); setTimeout(() => openModal(i.id), 300); res.style.display='none'; };
-                    res.appendChild(div);
-                });
-            } else res.style.display = 'none';
-        });
+        fetch(`api_search.php?q=${q}`)
+            .then(r => r.json())
+            .then(d => {
+                res.innerHTML = '';
+                if (d.length > 0) {
+                    res.style.display = 'block';
+                    d.forEach(i => {
+                        const div = document.createElement('div');
+                        div.style.cssText = "padding:12px; cursor:pointer; border-bottom:1px solid #f1f5f9; font-size:12px; display:flex; gap:10px; align-items:center; transition:background 0.2s;";
+                        div.onmouseover = () => div.style.background = "#f8fafc";
+                        div.onmouseout = () => div.style.background = "white";
+
+                        div.innerHTML = `
+                            <img src="${i.img && i.img !== 'null' ? i.img : 'default_avatar.png'}" style="width:30px; height:30px; border-radius:50%; object-fit:cover;"> 
+                            <div>
+                                <div style="font-weight:700; color:#1e293b;">${i.label}</div>
+                                <div style="color:#64748b; font-size:11px;">${i.sub}</div>
+                            </div>
+                        `;
+                        div.onclick = () => {
+                            switchFloor(i.floor);
+                            setTimeout(() => openModal(i.id), 300);
+                            res.style.display = 'none';
+                            document.getElementById('searchInput').value = '';
+                        };
+                        res.appendChild(div);
+                    });
+                } else {
+                    res.style.display = 'none';
+                }
+            });
     }, 300);
 }
 
@@ -365,18 +623,117 @@ document.querySelectorAll('.stall').forEach(stall => {
         if (stall.getAttribute('data-status') === 'occupied') {
             hoverName.innerText = stall.getAttribute('data-renter');
             hoverContact.innerText = stall.getAttribute('data-contact') || 'No Info';
+
             let img = stall.getAttribute('data-image');
             hoverImg.src = (img && img !== 'null') ? img : `https://ui-avatars.com/api/?name=${hoverName.innerText}&background=random`;
+
             let due = parseInt(stall.getAttribute('data-due'));
-            hoverDue.innerText = due > 0 ? `${due} Mos Due` : "Paid";
-            hoverDue.style.color = due > 0 ? "#ef4444" : "#10b981";
+            if (due > 0) {
+                hoverDue.innerText = `${due} Months Due`;
+                hoverDue.style.color = "#ef4444";
+            } else {
+                hoverDue.innerText = "Good Standing";
+                hoverDue.style.color = "#10b981";
+            }
+
             hoverCard.style.display = 'block';
         }
     });
     stall.addEventListener('mousemove', (e) => {
-        let x = e.clientX + 15; let y = e.clientY + 15;
-        if(x + 230 > window.innerWidth) x -= 245;
-        hoverCard.style.left = x + 'px'; hoverCard.style.top = y + 'px';
+        // Default: Top-Left of cursor
+        // We subtract ~245px (Width) and ~110px (Height) to shift it up and left
+        let x = e.clientX - 245;
+        let y = e.clientY - 110;
+
+        // Boundary Check: If it goes off-screen (Too far Left or Top), flip to Bottom-Right
+        if (x < 0) x = e.clientX + 15;
+        if (y < 0) y = e.clientY + 15;
+
+        hoverCard.style.left = x + 'px';
+        hoverCard.style.top = y + 'px';
     });
-    stall.addEventListener('mouseleave', () => { hoverCard.style.display = 'none'; });
+    stall.addEventListener('mouseleave', () => {
+        hoverCard.style.display = 'none';
+    });
 });
+
+// --- RESERVATION LOGIC (Missing from your file) ---
+
+function toggleReserveForm() {
+    const r = document.getElementById('reserveForm');
+    const f = document.getElementById('newTenantForm');
+    
+    // Close Tenant form if open
+    if(f) f.style.display = 'none';
+    
+    // Toggle Reserve Form
+    r.style.display = r.style.display === 'none' ? 'block' : 'none';
+    
+    // Set the Stall ID so the backend knows which stall to reserve
+    if(r.style.display === 'block') {
+        document.getElementById('resStallId').value = window.currentStallId;
+    }
+}
+
+function submitReservation() {
+    const form = document.getElementById('resForm');
+    const formData = new FormData(form);
+    
+    // Basic validation
+    if(!formData.get('renter_name')) {
+        showToast("Please enter an Applicant Name", "error");
+        return;
+    }
+
+    fetch('api_reserve.php', { method:'POST', body:formData })
+    .then(r=>r.json()).then(d=> {
+        if(d.success) { 
+            showToast("Reserved Successfully!", "success"); 
+            setTimeout(() => location.reload(), 1200); 
+        }
+        else { showToast(d.message || "Error reserving unit", "error"); }
+    })
+    .catch(e => { console.error(e); showToast("Network Error", "error"); });
+}
+
+function processReservation(action) {
+    if(!confirm(`Confirm: ${action.toUpperCase()} this reservation?`)) return;
+    
+    const fd = new FormData();
+    fd.append('action', action);
+    fd.append('stall_id', window.currentStallId);
+    fd.append('renter_id', window.currentRenterId);
+    
+    fetch('api_reservation_action.php', { method:'POST', body:fd })
+    .then(r=>r.json()).then(d=> {
+        if(d.success) { 
+            showToast(d.message, "success"); 
+            setTimeout(() => location.reload(), 1000); 
+        }
+        else { showToast(d.message, "error"); }
+    });
+}
+
+function startApproval() {
+    // 1. Hide the reservation panel
+    const panel = document.getElementById('reservationPanel');
+    if(panel) panel.style.display = 'none';
+
+    // 2. Show the "New Tenant" Form (Now works because it's outside emptyState)
+    const form = document.getElementById('newTenantForm');
+    form.style.display = 'block';
+
+    // 3. Pre-fill data
+    try {
+        let name = document.getElementById('rName').innerText;
+        name = name.replace(" (Applicant)", "").trim();
+        document.querySelector('input[name="renter_name"]').value = name;
+        
+        let contact = document.getElementById('rContact').innerText.trim();
+        document.querySelector('input[name="contact_number"]').value = contact;
+    } catch(e) { console.log(e); }
+
+    // 4. Set IDs for "Update Mode"
+    document.getElementById('wizardStallId').value = window.currentStallId;
+    document.getElementById('wizReservationId').value = window.currentRenterId;
+}

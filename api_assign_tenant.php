@@ -2,78 +2,115 @@
 header('Content-Type: application/json');
 include 'db_connect.php';
 
-$response = ['success' => false, 'message' => ''];
-
 $target_dir = "uploads/";
 if (!is_dir($target_dir)) mkdir($target_dir, 0777, true);
 
-// --- SECURITY: ALLOWED FILE TYPES ---
 $allowed_docs = ['pdf', 'jpg', 'jpeg', 'png', 'doc', 'docx'];
 $allowed_imgs = ['jpg', 'jpeg', 'png', 'webp'];
 
 $stall_id = $_POST['stall_id'] ?? 0;
+$reservation_id = $_POST['reservation_id'] ?? 0; // NEW: Check for ID
 $name = $_POST['renter_name'] ?? '';
 $contact = $_POST['contact_number'] ?? '';
 $start_date = $_POST['start_date'] ?? date('Y-m-d');
+$email = $_POST['email_address'] ?? '';
+$goodwill_total = $_POST['goodwill_total'] ?? 50000;
+$initial_payment = $_POST['initial_payment'] ?? 0;
 
 if (!$stall_id || !$name) {
     echo json_encode(['success' => false, 'message' => 'Missing Name or ID']);
     exit;
 }
 
+// --- FILE UPLOAD LOGIC (Reusable) ---
 $contract_path = null;
-$profile_path = null;
-
-// 1. SECURE CONTRACT UPLOAD
 if (isset($_FILES['contract_file']) && $_FILES['contract_file']['error'] == 0) {
     $ext = strtolower(pathinfo($_FILES["contract_file"]["name"], PATHINFO_EXTENSION));
-    
-    // SECURITY CHECK
-    if (!in_array($ext, $allowed_docs)) {
-        echo json_encode(['success' => false, 'message' => 'Invalid Contract File. Only PDF, DOC, or Images allowed.']);
-        exit;
-    }
-
-    $filename = time() . "_contract." . $ext;
-    if (move_uploaded_file($_FILES["contract_file"]["tmp_name"], $target_dir . $filename)) {
-        $contract_path = $target_dir . $filename;
+    if (in_array($ext, $allowed_docs)) {
+        $filename = time() . "_contract." . $ext;
+        if (move_uploaded_file($_FILES["contract_file"]["tmp_name"], $target_dir . $filename)) {
+            $contract_path = $target_dir . $filename;
+        }
     }
 }
 
-// 2. SECURE PROFILE IMAGE UPLOAD
+$profile_path = null;
 if (isset($_FILES['profile_image']) && $_FILES['profile_image']['error'] == 0) {
     $ext = strtolower(pathinfo($_FILES["profile_image"]["name"], PATHINFO_EXTENSION));
-    
-    // SECURITY CHECK
-    if (!in_array($ext, $allowed_imgs)) {
-        echo json_encode(['success' => false, 'message' => 'Invalid Profile Image. Only JPG, PNG, or WEBP allowed.']);
-        exit;
-    }
-
-    $filename = time() . "_profile." . $ext;
-    if (move_uploaded_file($_FILES["profile_image"]["tmp_name"], $target_dir . $filename)) {
-        $profile_path = $target_dir . $filename;
+    if (in_array($ext, $allowed_imgs)) {
+        $filename = time() . "_profile." . $ext;
+        if (move_uploaded_file($_FILES["profile_image"]["tmp_name"], $target_dir . $filename)) {
+            $profile_path = $target_dir . $filename;
+        }
     }
 }
 
 $conn->begin_transaction();
 try {
-    $stmt = $conn->prepare("INSERT INTO renters (stall_id, renter_name, contact_number, start_date, contract_file, profile_image) VALUES (?, ?, ?, ?, ?, ?)");
-    $stmt->bind_param("isssss", $stall_id, $name, $contact, $start_date, $contract_path, $profile_path);
-    $stmt->execute();
-    
-    $stmt2 = $conn->prepare("UPDATE stalls SET status = 'occupied' WHERE id = ?");
-    $stmt2->bind_param("i", $stall_id);
-    $stmt2->execute();
+    $final_renter_id = 0;
+
+    if ($reservation_id > 0) {
+        // === MODE A: UPDATE EXISTING RESERVATION (APPROVE) ===
+        // We update the existing row to remove the 'reservation' flag and add the contract
+        
+        $sql = "UPDATE renters SET 
+                renter_name = ?, 
+                contact_number = ?, 
+                email_address = ?, 
+                start_date = ?, 
+                is_reservation = 0, 
+                goodwill_total = ?";
+        
+        $types = "ssssd";
+        $params = [$name, $contact, $email, $start_date, $goodwill_total];
+
+        // Only update file paths if new ones were uploaded
+        if ($contract_path) { 
+            $sql .= ", contract_file = ?"; 
+            $types .= "s"; 
+            $params[] = $contract_path;
+        }
+        if ($profile_path) { 
+            $sql .= ", profile_image = ?"; 
+            $types .= "s"; 
+            $params[] = $profile_path;
+        }
+
+        $sql .= " WHERE renter_id = ?";
+        $types .= "i";
+        $params[] = $reservation_id;
+
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param($types, ...$params);
+        $stmt->execute();
+        
+        $final_renter_id = $reservation_id;
+
+        // Ensure stall is marked Occupied (it might be 'reserved' currently)
+        $conn->query("UPDATE stalls SET status = 'occupied' WHERE id = $stall_id");
+
+    } else {
+        // === MODE B: INSERT NEW TENANT (Standard) ===
+        $stmt = $conn->prepare("INSERT INTO renters (stall_id, renter_name, contact_number, email_address, start_date, contract_file, profile_image, goodwill_total) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+        $stmt->bind_param("issssssd", $stall_id, $name, $contact, $email, $start_date, $contract_path, $profile_path, $goodwill_total);
+        $stmt->execute();
+        
+        $final_renter_id = $conn->insert_id;
+        
+        $conn->query("UPDATE stalls SET status = 'occupied' WHERE id = $stall_id");
+    }
+
+    // --- RECORD INITIAL PAYMENT (If any) ---
+    if ($initial_payment > 0) {
+        $stmt3 = $conn->prepare("INSERT INTO payments (renter_id, payment_date, amount, payment_type, month_paid_for, remarks) VALUES (?, CURDATE(), ?, 'goodwill', NULL, 'Initial Deposit')");
+        $stmt3->bind_param("id", $final_renter_id, $initial_payment);
+        $stmt3->execute();
+    }
 
     $conn->commit();
     echo json_encode(['success' => true]);
 } catch (Exception $e) {
     $conn->rollback();
-    // Clean up files if DB fails to avoid junk
-    if ($contract_path && file_exists($contract_path)) unlink($contract_path);
-    if ($profile_path && file_exists($profile_path)) unlink($profile_path);
-    
     echo json_encode(['success' => false, 'message' => $e->getMessage()]);
 }
 ?>

@@ -14,7 +14,9 @@ function getStats($conn) {
     return ['revenue'=>$rev, 'occupied'=>$occ, 'total'=>$tot, 'rate'=>$rate];
 }
 
-function getTenants($conn, $onlyDelinquent = false) {
+// --- UPDATED TENANT FETCHING LOGIC ---
+function getTenants($conn, $filterType = 'all') {
+    // Base Query
     $sql = "SELECT r.renter_name, CONCAT(s.pasilyo, ' #', s.stall_number) as stall, r.contact_number, r.start_date,
             TIMESTAMPDIFF(MONTH, MAX(COALESCE(p.month_paid_for, r.start_date)), CURRENT_DATE()) as months_due
             FROM renters r
@@ -23,9 +25,17 @@ function getTenants($conn, $onlyDelinquent = false) {
             WHERE r.end_date IS NULL
             GROUP BY r.renter_id ";
     
-    if ($onlyDelinquent) {
-        $sql .= "HAVING months_due >= 1 ORDER BY months_due DESC";
-    } else {
+    // --- FILTER LOGIC ---
+    if ($filterType === 'red_list') {
+        // STRICT: Only show 3 months or more (Matches Dashboard "Red List")
+        $sql .= "HAVING months_due >= 3 ORDER BY months_due DESC";
+    } 
+    elseif ($filterType === 'dashboard') {
+        // Dashboard summary (Top 10 worst offenders)
+        $sql .= "HAVING months_due >= 3 ORDER BY months_due DESC LIMIT 10";
+    }
+    else {
+        // Masterlist (Show everyone, sorted by stall)
         $sql .= "ORDER BY s.pasilyo, s.stall_number";
     }
     
@@ -39,18 +49,19 @@ $title = "REPORT";
 $data = [];
 $stats = [];
 
+// --- REPORT TYPE SELECTOR ---
 if ($type === 'dashboard') {
     $title = "EXECUTIVE DASHBOARD SUMMARY";
     $stats = getStats($conn);
-    $data = getTenants($conn, true); // Show delinquents in dashboard
+    $data = getTenants($conn, 'dashboard'); 
 } 
 elseif ($type === 'tenants') {
     $title = "MASTER LIST OF TENANTS";
-    $data = getTenants($conn, false);
+    $data = getTenants($conn, 'all');
 } 
 elseif ($type === 'red_list') {
-    $title = "OFFICIAL DELINQUENT LIST";
-    $data = getTenants($conn, true);
+    $title = "CRITICAL DELINQUENT LIST (3+ MONTHS)";
+    $data = getTenants($conn, 'red_list');
 }
 ?>
 
@@ -124,7 +135,7 @@ elseif ($type === 'red_list') {
                 <div class="kpi-value"><?php echo $stats['occupied']; ?> / <?php echo $stats['total']; ?></div>
             </div>
         </div>
-        <h3 style="border-bottom: 2px solid #000; padding-bottom: 5px; margin-top: 0;">⚠️ Critical Attention List</h3>
+        <h3 style="border-bottom: 2px solid #000; padding-bottom: 5px; margin-top: 0;">⚠️ Critical Attention List (3+ Months Due)</h3>
         <?php endif; ?>
 
         <table>
