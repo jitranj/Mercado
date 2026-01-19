@@ -529,30 +529,94 @@ function render_stall($floor, $pasilyo, $stall_label, $data)
                         </div>
                     </div>
 
-                    <div id="tabAddUser" class="settings-content" style="display:none; transition:opacity 0.3s ease;">
-                        <div style="background:#f8fafc; padding:20px; border-radius:12px; border:1px solid #e2e8f0;">
-                            <form id="userForm">
-                                <input type="hidden" name="action" value="add_user">
-                                <div style="margin-bottom:16px;">
-                                    <label style="display:block; font-size:14px; font-weight:600; color:#374151; margin-bottom:6px;">Username</label>
-                                    <input type="text" name="username" placeholder="Enter username" required style="width:100%; padding:12px; border:1px solid #d1d5db; border-radius:8px; font-size:14px; transition:border-color 0.2s;">
+                    <div id="tabAddUser" class="settings-content" style="display:none;">
+                        <div id="userListView">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; padding-bottom:15px; border-bottom:1px solid #e2e8f0;">
+                                <div>
+                                    <h3 style="margin:0; color:#1e293b; font-size:18px;">Staff Management</h3>
+                                    <p style="margin:4px 0 0; color:#64748b; font-size:13px;">Manage access levels and security.</p>
                                 </div>
-                                <div style="margin-bottom:16px;">
-                                    <label style="display:block; font-size:14px; font-weight:600; color:#374151; margin-bottom:6px;">Password</label>
-                                    <input type="password" name="password" placeholder="Enter password" required style="width:100%; padding:12px; border:1px solid #d1d5db; border-radius:8px; font-size:14px; transition:border-color 0.2s;">
+                                <button onclick="toggleUserForm('create')"
+                                    style="padding:10px 16px; background:#3b82f6; color:white; border:none; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:6px; box-shadow:0 2px 4px rgba(59,130,246,0.3);">
+                                    <span>+</span> Add New User
+                                </button>
+                            </div>
+
+                            <div style="border:1px solid #e2e8f0; border-radius:10px; overflow:hidden; background:white;">
+                                <table style="width:100%; border-collapse:collapse; font-size:14px;">
+                                    <thead style="background:#f8fafc; border-bottom:1px solid #e2e8f0;">
+                                        <tr>
+                                            <th style="text-align:left; padding:15px; color:#475569; font-weight:700; width:40%;">USERNAME</th>
+                                            <th style="text-align:left; padding:15px; color:#475569; font-weight:700; width:30%;">ROLE</th>
+                                            <th style="text-align:right; padding:15px; color:#475569; font-weight:700; width:30%;">ACTIONS</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="userTableBody">
+                                        <tr>
+                                            <td colspan="3" style="padding:30px; text-align:center; color:#94a3b8;">Loading user list...</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div id="userFormView" style="display:none;">
+                            <div style="background:white; border:1px solid #e2e8f0; border-radius:12px; padding:25px; box-shadow:0 10px 25px -5px rgba(0,0,0,0.05);">
+                                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; padding-bottom:15px; border-bottom:1px solid #f1f5f9;">
+                                    <h3 id="userFormTitle" style="margin:0; color:#1e293b;">Edit User</h3>
+                                    <button onclick="toggleUserForm('list')" style="background:#f1f5f9; border:none; color:#64748b; padding:8px 12px; border-radius:6px; cursor:pointer; font-weight:600; font-size:12px;">Cancel & Go Back</button>
                                 </div>
-                                <div style="margin-bottom:20px;">
-                                    <label style="display:block; font-size:14px; font-weight:600; color:#374151; margin-bottom:6px;">Role</label>
-                                    <select name="role" required style="width:100%; padding:12px; border:1px solid #d1d5db; border-radius:8px; background:white; font-size:14px; transition:border-color 0.2s;">
-                                        <option value="staff_monitor">Monitor (View Only)</option>
-                                        <option value="staff_cashier">Cashier (Payments)</option>
-                                        <option value="staff_billing">Billing (SOA)</option>
-                                        <option value="manager">Manager (Reports)</option>
-                                        <option value="admin">Admin (Full Access)</option>
-                                    </select>
-                                </div>
-                                <button type="button" onclick="addUser()" style="width:100%; padding:12px; background:#3b82f6; color:white; border:none; border-radius:8px; cursor:pointer; font-weight:600; transition:background 0.2s, transform 0.2s;">Create User</button>
-                            </form>
+
+                                <form id="adminUserForm">
+                                    <input type="hidden" name="action" id="userFormAction" value="add_user">
+                                    <input type="hidden" name="target_user_id" id="targetUserId">
+
+                                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px; margin-bottom:20px;">
+                                        <div>
+                                            <label style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:6px;">USERNAME</label>
+                                            <input type="text" name="username" id="uUsername" required
+                                                style="width:100%; padding:12px; border:1px solid #cbd5e1; border-radius:8px; font-size:14px;">
+                                        </div>
+                                        <div>
+                                            <label style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:6px;">ASSIGNED ROLE</label>
+                                            <select name="role" id="uRole" style="width:100%; padding:12px; border:1px solid #cbd5e1; border-radius:8px; font-size:14px; background:white;">
+                                                <option value="staff_monitor">Staff (Monitor Only)</option>
+                                                <option value="staff_cashier">Cashier (Payments)</option>
+                                                <option value="staff_billing">Billing (Reports/SOA)</option>
+                                                <option value="manager">Manager (Full View)</option>
+                                                <option value="admin">Administrator (Full Control)</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div style="margin-bottom:25px;">
+                                        <label style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:6px;">
+                                            PASSWORD <span id="passLabelHint" style="font-weight:400; color:#94a3b8;">(Min 8 chars)</span>
+                                        </label>
+                                        <input type="password" name="new_password" id="uPass" placeholder="Enter password..."
+                                            style="width:100%; padding:12px; border:1px solid #cbd5e1; border-radius:8px; font-size:14px;">
+                                        <p id="passHintText" style="margin:5px 0 0; font-size:12px; color:#64748b;">Set a temporary password for the user.</p>
+                                    </div>
+
+                                    <div style="background:#fff1f2; padding:15px; border-radius:8px; border:1px dashed #fda4af;">
+                                        <label style="display:block; font-size:12px; font-weight:800; color:#e11d48; margin-bottom:8px;">🔒 SECURITY CHECK</label>
+                                        <div style="display:flex; gap:10px; align-items:center;">
+                                            <input type="password" name="admin_password" required placeholder="Enter YOUR Admin Password to confirm"
+                                                style="flex:1; padding:12px; border:1px solid #fecdd3; background:white; border-radius:8px; font-size:14px;">
+
+                                            <button type="button" onclick="submitAdminUserForm()"
+                                                style="padding:12px 24px; background:#e11d48; color:white; border:none; border-radius:8px; font-weight:700; cursor:pointer; box-shadow:0 4px 6px rgba(225,29,72,0.2);">
+                                                SAVE
+                                            </button>
+
+                                            <button type="button" id="btnDeleteUser" onclick="deleteUser()"
+                                                style="display:none; padding:12px 16px; background:#991b1b; color:white; border:none; border-radius:8px; font-weight:700; cursor:pointer; box-shadow:0 4px 6px rgba(0,0,0,0.2);" title="Delete this user">
+                                                🗑️
+                                            </button>
+                                        </div>
+                                    </div>
+                                </form>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -581,6 +645,9 @@ function render_stall($floor, $pasilyo, $stall_label, $data)
                             <button id="btnRecordPay" onclick="togglePayForm()" style="width:100%; padding:12px; background:#3b82f6; color:white; border:none; border-radius:8px; cursor:pointer; display:none; font-weight:bold;">Record Payment</button>
                             <button id="btnGenerateSOA" style="width:100%; margin-top:10px; padding:12px; background:white; border:1px solid #10b981; color:#10b981; border-radius:8px; cursor:pointer; display:none; font-weight:bold;">Generate SOA</button>
                             <button id="btnViewContract" style="width:100%; margin-top:10px; padding:12px; background:white; border:1px solid #3b82f6; color:#3b82f6; border-radius:8px; cursor:pointer; display:none; font-weight:bold;">View Contract</button>
+                            <button id="btnHistory" style="width:100%; margin-top:10px; padding:12px; background:white; border:1px solid #8b5cf6; color:#8b5cf6; border-radius:8px; cursor:pointer; display:none; font-weight:bold; transition:all 0.2s;" onmouseover="this.style.background='#f5f3ff'" onmouseout="this.style.background='white'">
+    📄 Payment History
+</button>
 
                             <div id="paymentForm" style="display:none; margin-top:15px; background:#f8fafc; padding:20px; border-radius:8px; border:1px solid #e2e8f0;">
                                 <form id="payForm">
@@ -613,14 +680,19 @@ function render_stall($floor, $pasilyo, $stall_label, $data)
                                     <label>Amount</label>
                                     <input type="number" id="payAmount" name="amount" placeholder="0.00" required>
 
-                                    <button type="button" onclick="submitPayment()" style="width:100%; padding:14px; background:#10b981; color:white; border:none; border-radius:8px; margin-top:10px; font-weight:bold;">💾 Save Payment</button>
+                                    <button type="button" onclick="submitPayment()"
+                                        style="width:100%; padding:14px; background:#10b981; color:white; border:none; border-radius:8px; margin-top:10px; font-weight:bold; cursor:pointer; transition: transform 0.2s, box-shadow 0.2s;"
+                                        onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(16, 185, 129, 0.4)';"
+                                        onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none';">
+                                        💾 Save Payment
+                                    </button>
                                 </form>
                             </div>
 
                             <button id="btnTerminate" onclick="terminateContract()" style="width:100%; margin-top:10px; padding:12px; background:white; border:1px solid #fecaca; color:#ef4444; border-radius:8px; cursor:pointer; display:none; font-weight:bold;">Terminate Contract</button>
                         </div>
 
-<div id="emptyState" style="display:none; text-align:center; padding-top:20px;">
+                        <div id="emptyState" style="display:none; text-align:center; padding-top:20px;">
                             <p style="color:#94a3b8; font-size:16px;">This unit is currently vacant.</p>
 
                             <div style="display:flex; gap:10px; justify-content:center;">
@@ -654,10 +726,11 @@ function render_stall($floor, $pasilyo, $stall_label, $data)
                                 <div style="background:#f1f5f9; padding:15px; border-radius:8px; margin-bottom:10px; border:1px solid #e2e8f0;">
                                     <label style="font-size:12px; font-weight:700; color:#475569;">GOODWILL AGREEMENT</label>
                                     <div style="display:flex; gap:10px;">
-                                        <input type="number" name="goodwill_total" value="50000" placeholder="Total"
-                                            style="flex:1; padding:10px; border:1px solid #cbd5e1; border-radius:6px;">
+                                        <input type="number" name="goodwill_total" value="50000" readonly
+                                            style="flex:1; padding:10px; border:1px solid #cbd5e1; border-radius:6px; background:#e2e8f0; color:#475569; font-weight:bold; cursor:not-allowed;" title="Fixed Rate">
+                                        
                                         <input type="number" name="initial_payment" placeholder="Paid Now"
-                                            style="flex:1; padding:10px; border:1px solid #cbd5e1; border-radius:6px;">
+                                            style="flex:1; padding:10px; border:1px solid #cbd5e1; border-radius:6px; background:white;">
                                     </div>
                                 </div>
 

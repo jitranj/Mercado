@@ -76,7 +76,7 @@ if ($action === 'change_password') {
 }
 
 // ==========================================================
-// ACTION 2: ADD NEW USER (Strictly ADMIN Only)
+// ACTION 2: ADD NEW USER (Strictly ADMIN Only + Secured)
 // ==========================================================
 if ($action === 'add_user') {
     if ($current_role !== 'admin') {
@@ -88,13 +88,34 @@ if ($action === 'add_user') {
     $username = trim($_POST['username'] ?? '');
     $password = $_POST['password'] ?? '';
     $new_role = $_POST['role'] ?? 'staff_monitor';
+    $admin_pass = $_POST['admin_password'] ?? ''; // <--- NEW: Admin Password Field
 
-    if (!$username || !$password) {
-        echo json_encode(['success' => false, 'message' => 'Missing username or password']);
+    // 1. Validate Input
+    if (!$username || !$password || !$admin_pass) {
+        echo json_encode(['success' => false, 'message' => 'Missing required fields (Username, Password, or Admin Auth)']);
         exit;
     }
 
-    // Check if username exists
+    if (strlen($password) < 8) {
+        echo json_encode(['success' => false, 'message' => 'Password must be at least 8 characters']);
+        exit;
+    }
+
+    // 2. Verify ADMIN Password (The Gatekeeper)
+    $stmt = $conn->prepare("SELECT password_hash FROM users WHERE user_id = ?");
+    $stmt->bind_param("i", $current_user_id);
+    $stmt->execute();
+    $stmt->bind_result($admin_hash);
+    $stmt->fetch();
+    $stmt->close();
+
+    if (!password_verify($admin_pass, $admin_hash)) {
+        logActivity($conn, $current_user_id, 'SECURITY_FAIL', "Admin failed password check while creating user [$username]");
+        echo json_encode(['success' => false, 'message' => ' Incorrect Admin Password']);
+        exit;
+    }
+
+    // 3. Check if username exists
     $check = $conn->prepare("SELECT user_id FROM users WHERE username = ?");
     $check->bind_param("s", $username);
     $check->execute();
@@ -105,7 +126,7 @@ if ($action === 'add_user') {
     }
     $check->close();
 
-    // Create User
+    // 4. Create User
     $hash = password_hash($password, PASSWORD_DEFAULT);
     $stmt = $conn->prepare("INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)");
     $stmt->bind_param("sss", $username, $hash, $new_role);
@@ -355,6 +376,151 @@ if ($action === 'export_dashboard') {
     }
     
     fclose($output);
+    exit;
+}
+
+// ==========================================================
+// ACTION 6: GET ALL USERS (For Admin View)
+// ==========================================================
+if ($action === 'get_users') {
+    if ($current_role !== 'admin') {
+        echo json_encode(['success' => false, 'message' => 'Unauthorized']);
+        exit;
+    }
+
+    $users = [];
+    $sql = "SELECT user_id, username, role FROM users ORDER BY user_id ASC";
+    $result = $conn->query($sql);
+    while($row = $result->fetch_assoc()) {
+        $users[] = $row;
+    }
+    echo json_encode($users);
+    exit;
+}
+
+// ==========================================================
+// ACTION 7: ADMIN UPDATE USER (Edit Other Staff)
+// ==========================================================
+if ($action === 'admin_update_user') {
+    // 1. Check Permissions
+    if ($current_role !== 'admin') {
+        echo json_encode(['success' => false, 'message' => 'Access Denied']);
+        exit;
+    }
+
+    $target_id = $_POST['target_user_id'] ?? 0;
+    $new_user = trim($_POST['username'] ?? '');
+    $new_role = $_POST['role'] ?? '';
+    $new_pass = $_POST['new_password'] ?? '';
+    $admin_pass = $_POST['admin_password'] ?? ''; // Security Check
+
+    if (!$target_id || !$new_user || !$admin_pass) {
+        echo json_encode(['success' => false, 'message' => 'Missing required fields']);
+        exit;
+    }
+
+    // 2. Verify ADMIN Password (The Gatekeeper)
+    $stmt = $conn->prepare("SELECT password_hash FROM users WHERE user_id = ?");
+    $stmt->bind_param("i", $current_user_id); // Check session user (Admin)
+    $stmt->execute();
+    $stmt->bind_result($admin_hash);
+    $stmt->fetch();
+    $stmt->close();
+
+    if (!password_verify($admin_pass, $admin_hash)) {
+        logActivity($conn, $current_user_id, 'SECURITY_FAIL', "Admin failed password check while editing user $target_id");
+        echo json_encode(['success' => false, 'message' => '❌ Incorrect Admin Password']);
+        exit;
+    }
+
+    // 3. Check Username Uniqueness (if changed)
+    $chk = $conn->prepare("SELECT user_id FROM users WHERE username = ? AND user_id != ?");
+    $chk->bind_param("si", $new_user, $target_id);
+    $chk->execute();
+    if ($chk->get_result()->num_rows > 0) {
+        echo json_encode(['success' => false, 'message' => 'Username already taken']);
+        exit;
+    }
+
+    // 4. Prepare Update
+    $updates = ["username = ?", "role = ?"];
+    $types = "ss";
+    $params = [$new_user, $new_role];
+
+    if (!empty($new_pass)) {
+        if (strlen($new_pass) < 8) {
+            echo json_encode(['success' => false, 'message' => 'Password too short (min 8)']);
+            exit;
+        }
+        $updates[] = "password_hash = ?";
+        $types .= "s";
+        $params[] = password_hash($new_pass, PASSWORD_DEFAULT);
+    }
+
+    $sql = "UPDATE users SET " . implode(", ", $updates) . " WHERE user_id = ?";
+    $types .= "i";
+    $params[] = $target_id;
+
+    $update_stmt = $conn->prepare($sql);
+    $update_stmt->bind_param($types, ...$params);
+
+    if ($update_stmt->execute()) {
+        logActivity($conn, $current_user_id, 'USER_EDIT', "Updated details for User ID $target_id");
+        echo json_encode(['success' => true, 'message' => ' User updated successfully']);
+    } else {
+        echo json_encode(['success' => false, 'message' => 'Database error']);
+    }
+    exit;
+}
+
+// ==========================================================
+// ACTION 8: DELETE USER (Strictly Admin + Password)
+// ==========================================================
+if ($action === 'delete_user') {
+    // 1. Permission Check
+    if ($current_role !== 'admin') {
+        echo json_encode(['success' => false, 'message' => 'Access Denied']);
+        exit;
+    }
+
+    $target_id = $_POST['target_user_id'] ?? 0;
+    $admin_pass = $_POST['admin_password'] ?? '';
+
+    if (!$target_id || !$admin_pass) {
+        echo json_encode(['success' => false, 'message' => 'Missing ID or Password']);
+        exit;
+    }
+
+    // 2. Prevent Self-Deletion
+    if ($target_id == $current_user_id) {
+        echo json_encode(['success' => false, 'message' => '❌ You cannot delete your own account while logged in.']);
+        exit;
+    }
+
+    // 3. Verify Admin Password
+    $stmt = $conn->prepare("SELECT password_hash FROM users WHERE user_id = ?");
+    $stmt->bind_param("i", $current_user_id);
+    $stmt->execute();
+    $stmt->bind_result($admin_hash);
+    $stmt->fetch();
+    $stmt->close();
+
+    if (!password_verify($admin_pass, $admin_hash)) {
+        logActivity($conn, $current_user_id, 'SECURITY_FAIL', "Admin failed password check while deleting user $target_id");
+        echo json_encode(['success' => false, 'message' => ' Incorrect Admin Password']);
+        exit;
+    }
+
+    // 4. Perform Delete
+    $del = $conn->prepare("DELETE FROM users WHERE user_id = ?");
+    $del->bind_param("i", $target_id);
+    
+    if ($del->execute()) {
+        logActivity($conn, $current_user_id, 'USER_DELETED', "Deleted User ID $target_id");
+        echo json_encode(['success' => true, 'message' => 'User deleted successfully']);
+    } else {
+        echo json_encode(['success' => false, 'message' => 'Database error']);
+    }
     exit;
 }
 

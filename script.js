@@ -35,25 +35,25 @@ function toggleMonthInput() {
     if (type === 'rent') {
         // RENT: Show Rent Info & OR Number
         rentGroup.style.display = 'block';
-        if(orGroup) orGroup.style.display = 'block';
-        
+        if (orGroup) orGroup.style.display = 'block';
+
         // Lock Amount
         amountInput.value = window.currentStallRate || 0;
-        amountInput.readOnly = true; 
-        amountInput.style.backgroundColor = "#f1f5f9"; 
+        amountInput.readOnly = true;
+        amountInput.style.backgroundColor = "#f1f5f9";
         amountInput.style.cursor = "not-allowed";
-        
+
         // Lock Month Input if it exists
         const mInput = document.getElementById('payMonth');
-        if(mInput) {
+        if (mInput) {
             mInput.readOnly = true;
             mInput.style.backgroundColor = "#f1f5f9";
         }
     } else {
         // GOODWILL: Hide Rent Info & OR Number
         rentGroup.style.display = 'none';
-        if(orGroup) orGroup.style.display = 'none';
-        
+        if (orGroup) orGroup.style.display = 'none';
+
         // Unlock Amount
         amountInput.value = '';
         amountInput.readOnly = false;
@@ -263,6 +263,11 @@ function switchTab(tabId, btn) {
         btn.style.background = '#1e293b';
         btn.style.color = 'white';
     }
+
+    // --- ADD THIS HERE ---
+    if (tabId === 'tabAddUser') {
+        loadUserList();
+    }
 }
 
 function changePass() {
@@ -317,9 +322,14 @@ function openModal(id) {
     document.getElementById('emptyState').style.display = 'none';
     document.getElementById('paymentForm').style.display = 'none';
 
+    document.getElementById('historyList').innerHTML = ''; 
+    if(document.getElementById('btnHistory')) document.getElementById('btnHistory').style.display = 'none';
+    
+    document.getElementById('rDate').innerText = ""; // <--- NEW FIX: Wipes the old Start Date
+
     document.getElementById('newTenantForm').style.display = 'none';
     document.getElementById('reserveForm').style.display = 'none';
-    
+
     // Clear any previous injected reservation/goodwill panels
     if (document.getElementById('goodwillInfo')) document.getElementById('goodwillInfo').remove();
     if (document.getElementById('paidUpBadge')) document.getElementById('paidUpBadge').remove();
@@ -345,13 +355,13 @@ function openModal(id) {
                 document.getElementById('renterDetails').style.display = 'block';
                 document.getElementById('rName').innerText = d.renter.name + " (Applicant)";
                 document.getElementById('rContact').innerText = d.renter.contact;
-                
+
                 // Hide Standard Tenant Buttons
                 btnPay.style.display = 'none';
                 btnTerm.style.display = 'none';
                 btnContract.style.display = 'none';
                 btnSOA.style.display = 'none';
-                
+
                 // Inject Reservation Controls
                 const resPanel = document.createElement('div');
                 resPanel.id = 'reservationPanel';
@@ -371,7 +381,7 @@ function openModal(id) {
                     </div>
                 `;
                 document.getElementById('renterDetails').appendChild(resPanel);
-                
+
                 // Show Profile Pic if any
                 let img = (d.renter.image && d.renter.image !== 'null') ? d.renter.image : `https://ui-avatars.com/api/?name=${d.renter.name}&background=random`;
                 document.getElementById('mImage').src = img;
@@ -381,28 +391,41 @@ function openModal(id) {
                 // === 2. STANDARD OCCUPIED TENANT ===
                 document.getElementById('renterDetails').style.display = 'block';
                 document.getElementById('rName').innerText = d.renter.name;
-                document.getElementById('rContact').innerHTML = d.renter.contact + 
+
+                // Contact & Email
+                document.getElementById('rContact').innerHTML = d.renter.contact +
                     (d.renter.email ? `<br><span style="font-size:12px; color:#3b82f6;">${d.renter.email}</span>` : '');
+
                 document.getElementById('rDate').innerText = "Start Date: " + (d.renter.since || "N/A");
+
+                // --- PAYMENT LOGIC (FIXED) ---
                 const nextDue = d.renter.next_due;
                 const today = new Date().toISOString().slice(0, 7);
+
+                // Global Flag for Payment Form
+                window.isRentPaidUp = (nextDue > today);
 
                 document.getElementById('payMonth').value = nextDue;
                 document.getElementById('payAmount').value = d.stall.rate;
 
-                if (nextDue > today) {
-                    btnPay.style.display = 'none';
+                if (window.isRentPaidUp) {
+                    // 1. Paid Up: Show Badge
                     let badge = document.createElement('div');
                     badge.id = 'paidUpBadge';
                     badge.innerHTML = "✅ RENT UP TO DATE";
                     badge.style.cssText = "background:#dcfce7; color:#166534; padding:12px; border-radius:8px; font-weight:700; text-align:center; margin-bottom:15px; border:1px solid #bbf7d0; font-size:14px;";
                     document.getElementById('renterDetails').insertBefore(badge, btnPay);
+
+                    // 2. Button stays visible (Generic Text) for Goodwill
+                    btnPay.style.display = (USER_ROLE === 'admin' || USER_ROLE === 'staff_cashier') ? 'block' : 'none';
+                    btnPay.innerText = "Record Payment";
                 } else {
+                    // 3. Rent Due: Show specific text
                     btnPay.style.display = (USER_ROLE === 'admin' || USER_ROLE === 'staff_cashier') ? 'block' : 'none';
                     btnPay.innerText = "Pay Bill for: " + nextDue;
                 }
 
-                // Goodwill Panel
+                // --- GOODWILL PANEL ---
                 const gw = d.renter.goodwill;
                 if (gw && gw.balance > 0) {
                     const gwDiv = document.createElement('div');
@@ -417,50 +440,70 @@ function openModal(id) {
                     document.getElementById('rName').insertAdjacentElement('afterend', gwDiv);
                 }
 
+                // --- RESTORED: PROFILE PICTURE ---
                 let img = (d.renter.image && d.renter.image !== 'null') ? d.renter.image : `https://ui-avatars.com/api/?name=${d.renter.name}&background=random`;
                 document.getElementById('mImage').src = img;
                 document.getElementById('modalProfilePic').style.display = 'block';
 
+                // --- RESTORED: BUTTONS (Contract, Terminate, SOA) ---
+
+                // Contract Button
                 if (d.renter.contract && d.renter.contract !== 'null') {
                     btnContract.style.display = 'block';
                     btnContract.onclick = () => window.open(d.renter.contract, '_blank');
                 } else btnContract.style.display = 'none';
 
+                // Terminate Button (Admin Only)
                 btnTerm.style.display = (USER_ROLE === 'admin') ? 'block' : 'none';
 
+                // SOA Button (Admin or Billing)
                 if (USER_ROLE === 'admin' || USER_ROLE === 'staff_billing') {
                     btnSOA.style.display = 'block';
                     btnSOA.onclick = () => window.open(`soa_print.php?id=${d.renter.id}`, '_blank');
                 } else btnSOA.style.display = 'none';
-            }
 
-            // HISTORY TABLE (Common for both)
-            let hHtml = '';
-            d.history.forEach(h => {
-                let label = '';
-                let amtStyle = 'font-weight:bold;';
-
-                if (h.payment_type === 'goodwill') {
-                    label = `<span style="background:#ffedd5; color:#c2410c; padding:2px 6px; border-radius:4px; font-size:10px; font-weight:800;">GW</span>`;
-                    amtStyle += 'color:#c2410c;';
+                const btnHistory = document.getElementById('btnHistory');
+                if (['admin', 'manager', 'staff_billing', 'staff_cashier'].includes(USER_ROLE)) {
+                    btnHistory.style.display = 'block';
+                    btnHistory.onclick = () => window.open(`print_history.php?id=${d.renter.id}`, '_blank');
                 } else {
-                    label = `<span style="background:#dbeafe; color:#1e40af; padding:2px 6px; border-radius:4px; font-size:10px; font-weight:800;">RENT</span> 
-                             <span style="font-size:11px; color:#64748b; margin-left:4px;">${h.month_paid_for}</span>`;
+                    btnHistory.style.display = 'none';
                 }
+// --- HISTORY TABLE FIX (Clean Dates) ---
+                let hHtml = '';
+                d.history.forEach(h => {
+                    let label = '';
+                    let amtStyle = 'font-weight:bold;';
+                    let dateStr = h.payment_date ? new Date(h.payment_date).toLocaleDateString() : 'N/A';
 
-                hHtml += `
-                    <tr style="border-bottom:1px solid #f1f5f9;">
-                        <td style="padding:10px 0;">
-                            ${label}
-                            <div style="font-size:10px; color:#94a3b8; margin-top:3px; font-family:monospace;">
-                                OR# ${h.or_no || 'N/A'}
-                            </div>
-                        </td>
-                        <td style="text-align:right; ${amtStyle}">₱${parseInt(h.amount).toLocaleString()}</td>
-                    </tr>`;
-            });
-            document.getElementById('historyList').innerHTML = hHtml || '<tr><td colspan="2" style="text-align:center; padding:15px; color:#94a3b8;">No payment history</td></tr>';
+                    if (h.payment_type === 'goodwill') {
+                        // Goodwill: Just show the GW Badge
+                        label = `<span style="background:#ffedd5; color:#c2410c; padding:2px 6px; border-radius:4px; font-size:10px; font-weight:800;">GW</span>`;
+                        amtStyle += 'color:#c2410c;';
+                    } else {
+                        // Rent: Format "2026-01-01" -> "Jan 2026"
+                        let billDate = new Date(h.month_paid_for);
+                        let monthStr = billDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+                        
+                        label = `<span style="background:#dbeafe; color:#1e40af; padding:2px 6px; border-radius:4px; font-size:10px; font-weight:800;">RENT</span> 
+                                 <span style="font-size:11px; color:#334155; font-weight:600; margin-left:4px;">${monthStr}</span>`;
+                    }
 
+                    hHtml += `
+                        <tr style="border-bottom:1px solid #f1f5f9;">
+                            <td style="padding:10px 0;">
+                                <div style="display:flex; align-items:center; gap:6px; margin-bottom:2px;">
+                                    ${label}
+                                </div>
+                                <div style="font-size:10px; color:#94a3b8; font-family:monospace;">
+                                    Paid: ${dateStr} <span style="color:#cbd5e1;">|</span> OR# ${h.or_no || '--'}
+                                </div>
+                            </td>
+                            <td style="text-align:right; ${amtStyle}">₱${parseInt(h.amount).toLocaleString()}</td>
+                        </tr>`;
+                });
+                document.getElementById('historyList').innerHTML = hHtml || '<tr><td colspan="2" style="text-align:center; padding:15px; color:#94a3b8;">No payment history</td></tr>';
+            }
         } else {
             // === 3. VACANT ===
             document.getElementById('renterDetails').style.display = 'none';
@@ -487,9 +530,27 @@ window.onclick = e => {
 function togglePayForm() {
     const f = document.getElementById('paymentForm');
     f.style.display = f.style.display === 'none' ? 'block' : 'none';
+
     if (f.style.display === 'block') {
         document.getElementById('payRenterId').value = window.currentRenterId;
-        toggleMonthInput(); // Initialize logic
+
+        // --- NEW LOGIC: HANDLE PAID UP RENT ---
+        const rentOpt = document.querySelector('#payType option[value="rent"]');
+        const payTypeSelect = document.getElementById('payType');
+
+        if (window.isRentPaidUp) {
+            // Rent is paid -> Disable Rent option, Switch to Goodwill
+            rentOpt.disabled = true;
+            rentOpt.innerText = "Monthly Rent (Paid Up)";
+            payTypeSelect.value = 'goodwill';
+        } else {
+            // Rent is due -> Enable Rent option
+            rentOpt.disabled = false;
+            rentOpt.innerText = "Monthly Rent";
+            payTypeSelect.value = 'rent';
+        }
+
+        toggleMonthInput(); // Update UI fields based on selection
     }
 }
 
@@ -501,7 +562,7 @@ function toggleTenantForm() {
     // 2. Toggle the Tenant Form
     const f = document.getElementById('newTenantForm');
     f.style.display = f.style.display === 'none' ? 'block' : 'none';
-    
+
     if (f.style.display === 'block') {
         document.getElementById('wizardStallId').value = window.currentStallId;
         document.getElementById('wizReservationId').value = 0; // Reset ID
@@ -509,30 +570,30 @@ function toggleTenantForm() {
     }
 }
 
-function submitPayment() { 
+function submitPayment() {
     const form = document.getElementById('payForm');
     const formData = new FormData(form);
-    
+
     // NEW VALIDATION LOGIC
     const type = formData.get('payment_type');
     const or_no = formData.get('or_no');
 
     // Only scream about OR Number if it's RENT
-    if(type === 'rent' && (!or_no || or_no.trim() === '')) {
+    if (type === 'rent' && (!or_no || or_no.trim() === '')) {
         showToast("⚠️ OR Number is required for Rent!", "error");
         return;
     }
 
-    fetch('api_add_payment.php', { method:'POST', body:formData })
-    .then(r=>r.json()).then(d=> { 
-        if(d.success) { 
-            showToast("Payment Recorded!", "success"); 
-            setTimeout(() => location.reload(), 1200); 
-        } else { 
-            showToast(d.message || "Error", "error"); 
-        } 
-    })
-    .catch(e => { console.error(e); showToast("Network Error", "error"); });
+    fetch('api_add_payment.php', { method: 'POST', body: formData })
+        .then(r => r.json()).then(d => {
+            if (d.success) {
+                showToast("Payment Recorded!", "success");
+                setTimeout(() => location.reload(), 1200);
+            } else {
+                showToast(d.message || "Error", "error");
+            }
+        })
+        .catch(e => { console.error(e); showToast("Network Error", "error"); });
 }
 
 function submitNewTenant() {
@@ -662,15 +723,15 @@ document.querySelectorAll('.stall').forEach(stall => {
 function toggleReserveForm() {
     const r = document.getElementById('reserveForm');
     const f = document.getElementById('newTenantForm');
-    
+
     // Close Tenant form if open
-    if(f) f.style.display = 'none';
-    
+    if (f) f.style.display = 'none';
+
     // Toggle Reserve Form
     r.style.display = r.style.display === 'none' ? 'block' : 'none';
-    
+
     // Set the Stall ID so the backend knows which stall to reserve
-    if(r.style.display === 'block') {
+    if (r.style.display === 'block') {
         document.getElementById('resStallId').value = window.currentStallId;
     }
 }
@@ -678,46 +739,46 @@ function toggleReserveForm() {
 function submitReservation() {
     const form = document.getElementById('resForm');
     const formData = new FormData(form);
-    
+
     // Basic validation
-    if(!formData.get('renter_name')) {
+    if (!formData.get('renter_name')) {
         showToast("Please enter an Applicant Name", "error");
         return;
     }
 
-    fetch('api_reserve.php', { method:'POST', body:formData })
-    .then(r=>r.json()).then(d=> {
-        if(d.success) { 
-            showToast("Reserved Successfully!", "success"); 
-            setTimeout(() => location.reload(), 1200); 
-        }
-        else { showToast(d.message || "Error reserving unit", "error"); }
-    })
-    .catch(e => { console.error(e); showToast("Network Error", "error"); });
+    fetch('api_reserve.php', { method: 'POST', body: formData })
+        .then(r => r.json()).then(d => {
+            if (d.success) {
+                showToast("Reserved Successfully!", "success");
+                setTimeout(() => location.reload(), 1200);
+            }
+            else { showToast(d.message || "Error reserving unit", "error"); }
+        })
+        .catch(e => { console.error(e); showToast("Network Error", "error"); });
 }
 
 function processReservation(action) {
-    if(!confirm(`Confirm: ${action.toUpperCase()} this reservation?`)) return;
-    
+    if (!confirm(`Confirm: ${action.toUpperCase()} this reservation?`)) return;
+
     const fd = new FormData();
     fd.append('action', action);
     fd.append('stall_id', window.currentStallId);
     fd.append('renter_id', window.currentRenterId);
-    
-    fetch('api_reservation_action.php', { method:'POST', body:fd })
-    .then(r=>r.json()).then(d=> {
-        if(d.success) { 
-            showToast(d.message, "success"); 
-            setTimeout(() => location.reload(), 1000); 
-        }
-        else { showToast(d.message, "error"); }
-    });
+
+    fetch('api_reservation_action.php', { method: 'POST', body: fd })
+        .then(r => r.json()).then(d => {
+            if (d.success) {
+                showToast(d.message, "success");
+                setTimeout(() => location.reload(), 1000);
+            }
+            else { showToast(d.message, "error"); }
+        });
 }
 
 function startApproval() {
     // 1. Hide the reservation panel
     const panel = document.getElementById('reservationPanel');
-    if(panel) panel.style.display = 'none';
+    if (panel) panel.style.display = 'none';
 
     // 2. Show the "New Tenant" Form (Now works because it's outside emptyState)
     const form = document.getElementById('newTenantForm');
@@ -728,12 +789,173 @@ function startApproval() {
         let name = document.getElementById('rName').innerText;
         name = name.replace(" (Applicant)", "").trim();
         document.querySelector('input[name="renter_name"]').value = name;
-        
+
         let contact = document.getElementById('rContact').innerText.trim();
         document.querySelector('input[name="contact_number"]').value = contact;
-    } catch(e) { console.log(e); }
+    } catch (e) { console.log(e); }
 
     // 4. Set IDs for "Update Mode"
     document.getElementById('wizardStallId').value = window.currentStallId;
     document.getElementById('wizReservationId').value = window.currentRenterId;
+}
+
+
+// --- 10. USER MANAGEMENT (ADMIN) ---
+
+// Global list to store users safely (Fixes the "broken HTML" issue)
+let loadedUsers = [];
+
+function loadUserList() {
+    fetch('api_admin.php?action=get_users')
+        .then(r => r.json())
+        .then(users => {
+            loadedUsers = users; // Store data globally
+            const tbody = document.getElementById('userTableBody');
+            tbody.innerHTML = '';
+
+            users.forEach((u, index) => {
+                const row = document.createElement('tr');
+                row.style.borderBottom = '1px solid #f1f5f9';
+                // We use the 'index' to look up the user data safely, no more JSON.stringify issues
+                row.innerHTML = `
+                <td style="padding:10px; color:#1e293b; font-weight:600;">${u.username}</td>
+                <td style="padding:10px; color:#64748b;">${u.role}</td>
+                <td style="padding:10px; text-align:right;">
+                    <button onclick="openEditUser(${index})" 
+                            style="padding:4px 10px; background:#e2e8f0; border:none; border-radius:4px; font-size:11px; cursor:pointer; color:#334155;">
+                        Edit
+                    </button>
+                </td>
+            `;
+                tbody.appendChild(row);
+            });
+        });
+}
+
+function toggleUserForm(view) {
+    const btnDelete = document.getElementById('btnDeleteUser');
+
+    if (view === 'create') {
+        document.getElementById('userListView').style.display = 'none';
+        document.getElementById('userFormView').style.display = 'block';
+        document.getElementById('userFormTitle').innerText = "Create New User";
+        document.getElementById('userFormAction').value = "add_user";
+        document.getElementById('targetUserId').value = "";
+
+        if (btnDelete) btnDelete.style.display = 'none';
+
+        document.getElementById('adminUserForm').reset(); // Clears everything for new users
+
+        const passInput = document.getElementById('uPass');
+        passInput.name = "password";
+        passInput.placeholder = "Create Password (Min 8 chars)";
+        passInput.required = true;
+        document.getElementById('passHint').innerText = "Required for new users";
+
+    } else if (view === 'edit') {
+        document.getElementById('userListView').style.display = 'none';
+        document.getElementById('userFormView').style.display = 'block';
+
+        if (btnDelete) btnDelete.style.display = 'block';
+
+        // 1. CLEAR ADMIN PASSWORD (The Fix)
+        document.querySelector('input[name="admin_password"]').value = "";
+
+        const passInput = document.getElementById('uPass');
+        passInput.name = "new_password";
+        passInput.required = false;
+
+    } else {
+        document.getElementById('userListView').style.display = 'block';
+        document.getElementById('userFormView').style.display = 'none';
+        loadUserList();
+    }
+}
+
+function openEditUser(index) {
+    const u = loadedUsers[index]; // Retrieve safely from global array
+
+    toggleUserForm('edit');
+    document.getElementById('userFormTitle').innerText = "Edit " + u.username;
+    document.getElementById('userFormAction').value = "admin_update_user";
+    document.getElementById('targetUserId').value = u.user_id;
+
+    document.getElementById('uUsername').value = u.username;
+    document.getElementById('uRole').value = u.role;
+
+    // Setup Password Field for Editing
+    const passInput = document.getElementById('uPass');
+    passInput.name = "new_password";
+    passInput.placeholder = "Leave blank to keep current";
+    passInput.required = false; // Not required for updates
+    document.getElementById('passHint').innerText = "Only fill to reset password";
+}
+
+function submitAdminUserForm() {
+    const form = document.getElementById('adminUserForm');
+    const fd = new FormData(form);
+    const action = fd.get('action');
+
+    // Validations...
+    if (!fd.get('admin_password')) {
+        showToast("⚠️ Please enter YOUR admin password to confirm.", "error");
+        return;
+    }
+
+    let userPass = "";
+    if (action === 'add_user') userPass = fd.get('password');
+    else if (action === 'admin_update_user') userPass = fd.get('new_password');
+
+    if (userPass && userPass.length > 0 && userPass.length < 8) {
+        showToast("⚠️ User password must be at least 8 characters.", "error");
+        return;
+    }
+
+    fetch('api_admin.php', { method: 'POST', body: fd })
+        .then(r => r.json())
+        .then(d => {
+            if (d.success) {
+                showToast(d.message || "Success!", "success");
+
+                form.reset(); // <--- THE SECURITY FIX (Wipes the password)
+
+                toggleUserForm('list');
+                loadUserList();
+            } else {
+                showToast(d.message || "Error", "error");
+            }
+        })
+        .catch(e => { console.error(e); showToast("Server Error", "error"); });
+}
+
+function deleteUser() {
+    const form = document.getElementById('adminUserForm');
+    const fd = new FormData(form);
+    const targetId = fd.get('target_user_id');
+
+    // 1. Security Check: Admin Password Required
+    if (!fd.get('admin_password')) {
+        showToast("⚠️ Enter YOUR Admin Password to confirm deletion.", "error");
+        return;
+    }
+
+    // 2. Double Confirmation
+    if (!confirm("Are you sure you want to PERMANENTLY DELETE this user? This cannot be undone.")) {
+        return;
+    }
+
+    // 3. Prepare Payload manually (since we need to change the action)
+    fd.set('action', 'delete_user');
+
+    fetch('api_admin.php', { method: 'POST', body: fd })
+        .then(r => r.json())
+        .then(d => {
+            if (d.success) {
+                showToast("User Deleted Successfully", "success");
+                toggleUserForm('list');
+            } else {
+                showToast(d.message || "Error deleting user", "error");
+            }
+        })
+        .catch(e => { console.error(e); showToast("Server Error", "error"); });
 }
