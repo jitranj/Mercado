@@ -646,8 +646,8 @@ function render_stall($floor, $pasilyo, $stall_label, $data)
                             <button id="btnGenerateSOA" style="width:100%; margin-top:10px; padding:12px; background:white; border:1px solid #10b981; color:#10b981; border-radius:8px; cursor:pointer; display:none; font-weight:bold;">Generate SOA</button>
                             <button id="btnViewContract" style="width:100%; margin-top:10px; padding:12px; background:white; border:1px solid #3b82f6; color:#3b82f6; border-radius:8px; cursor:pointer; display:none; font-weight:bold;">View Contract</button>
                             <button id="btnHistory" style="width:100%; margin-top:10px; padding:12px; background:white; border:1px solid #8b5cf6; color:#8b5cf6; border-radius:8px; cursor:pointer; display:none; font-weight:bold; transition:all 0.2s;" onmouseover="this.style.background='#f5f3ff'" onmouseout="this.style.background='white'">
-    📄 Payment History
-</button>
+                                📄 Payment History
+                            </button>
 
                             <div id="paymentForm" style="display:none; margin-top:15px; background:#f8fafc; padding:20px; border-radius:8px; border:1px solid #e2e8f0;">
                                 <form id="payForm">
@@ -728,7 +728,7 @@ function render_stall($floor, $pasilyo, $stall_label, $data)
                                     <div style="display:flex; gap:10px;">
                                         <input type="number" name="goodwill_total" value="50000" readonly
                                             style="flex:1; padding:10px; border:1px solid #cbd5e1; border-radius:6px; background:#e2e8f0; color:#475569; font-weight:bold; cursor:not-allowed;" title="Fixed Rate">
-                                        
+
                                         <input type="number" name="initial_payment" placeholder="Paid Now"
                                             style="flex:1; padding:10px; border:1px solid #cbd5e1; border-radius:6px; background:white;">
                                     </div>
@@ -750,6 +750,57 @@ function render_stall($floor, $pasilyo, $stall_label, $data)
                                     style="width:100%; padding:14px; background:#3b82f6; color:white; border:none; border-radius:8px; font-weight:bold; cursor:pointer;">
                                     Confirm Tenant
                                 </button>
+                            </form>
+                        </div>
+
+                        <div id="editTenantForm" style="display:none; margin-top:20px; text-align:left;">
+                            <h3 style="margin-top:0; color:#3b82f6;">Edit Tenant Details</h3>
+                            <form id="formEditRenter" enctype="multipart/form-data">
+                                <input type="hidden" id="editRenterId" name="renter_id">
+
+                                <label style="font-size:12px; font-weight:700; color:#475569;">NAME</label>
+                                <input type="text" id="editName" name="renter_name" class="form-input">
+
+                                <div style="display:flex; gap:10px;">
+                                    <div style="flex:1;">
+                                        <label style="font-size:12px; font-weight:700; color:#475569;">CONTACT</label>
+                                        <input type="text" id="editContact" name="contact_number" class="form-input">
+                                    </div>
+                                    <div style="flex:1;">
+                                        <label style="font-size:12px; font-weight:700; color:#475569;">EMAIL</label>
+                                        <input type="email" id="editEmail" name="email_address" class="form-input">
+                                    </div>
+                                </div>
+
+                                <label style="font-size:12px; font-weight:700; color:#475569;">CHANGE PHOTO</label>
+                                <input type="file" name="profile_image" class="form-input" style="background:white;">
+
+                                <div style="background:#fff1f2; padding:15px; border-radius:8px; border:1px dashed #fda4af; margin-top:15px;">
+                                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                                        <label style="font-size:12px; font-weight:800; color:#be123c;">🔒 SENSITIVE DATA</label>
+                                        <span style="font-size:10px; color:#be123c;">(Password Required to Change)</span>
+                                    </div>
+
+                                    <div style="display:flex; gap:10px; margin-bottom:10px;">
+                                        <div style="flex:1;">
+                                            <label style="font-size:11px; font-weight:700; color:#881337;">START DATE</label>
+                                            <input type="date" id="editStartDate" name="start_date" class="form-input">
+                                        </div>
+                                        <div style="flex:1;">
+                                            <label style="font-size:11px; font-weight:700; color:#881337;">NEW CONTRACT</label>
+                                            <input type="file" name="contract_file" class="form-input" style="background:white; font-size:11px;">
+                                        </div>
+                                    </div>
+
+                                    <label style="font-size:11px; font-weight:700; color:#881337;">ADMIN PASSWORD</label>
+                                    <input type="password" name="admin_password" placeholder="Enter only if changing Date/Contract"
+                                        class="form-input" style="border-color:#fda4af;">
+                                </div>
+
+                                <div style="display:flex; gap:10px; margin-top:15px;">
+                                    <button type="button" onclick="cancelEdit()" style="flex:1; padding:12px; background:#e2e8f0; color:#475569; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">Cancel</button>
+                                    <button type="button" onclick="submitEditRenter()" style="flex:1; padding:12px; background:#3b82f6; color:white; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">💾 Save Changes</button>
+                                </div>
                             </form>
                         </div>
 

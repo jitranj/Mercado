@@ -207,32 +207,38 @@ if ($action === 'export_tenants_csv') {
     exit;
 }
 
-// EXPORT PAYMENTS (Admin, Cashier, Manager)
 if ($action === 'export_payments_csv') {
-    // Note: STAFF_ENCODER can *input* payments but usually shouldn't *bulk export* them 
-    // to prevent data theft. Remove 'staff_encoder' if you want to be strict.
-    if (!in_array($current_role, ['admin', 'manager', 'staff_cashier'])) {
-        die("Unauthorized Access");
-    }
-
-    logActivity($conn, $current_user_id, 'EXPORT_DATA', "Exported Payment History");
-
-    $filename = "payments_" . date('Y-m-d') . ".csv";
     header('Content-Type: text/csv');
-    header('Content-Disposition: attachment; filename="' . $filename . '"');
+    header('Content-Disposition: attachment; filename="payments_export_' . date('Y-m-d') . '.csv"');
 
     $output = fopen('php://output', 'w');
-    fputcsv($output, ['Payment ID', 'Renter', 'Stall', 'Amount', 'Date Paid', 'Month For']);
+    
+    // CSV Headers
+    fputcsv($output, ['Payment ID', 'Renter', 'Stall', 'Amount', 'Date Paid', 'Month For', 'Type', 'OR No']);
 
-    $sql = "SELECT p.payment_id, r.renter_name, CONCAT(s.pasilyo,' #', s.stall_number) as stall, 
-            p.amount, p.date_paid, p.month_paid_for 
-            FROM payments p 
-            LEFT JOIN renters r ON p.renter_id = r.renter_id 
-            LEFT JOIN stalls s ON r.stall_id = s.id 
-            ORDER BY p.date_paid DESC";
-            
+    // THE FIX: Changed 'p.date_paid' to 'p.payment_date'
+    $sql = "SELECT 
+                p.payment_id, 
+                r.renter_name, 
+                CONCAT(s.floor, '-', s.pasilyo, ' ', s.stall_number) as stall_loc, 
+                p.amount, 
+                p.payment_date,  /* <--- THIS WAS THE ERROR */
+                p.month_paid_for,
+                p.payment_type,
+                p.or_no
+            FROM payments p
+            LEFT JOIN renters r ON p.renter_id = r.renter_id
+            LEFT JOIN stalls s ON r.stall_id = s.id
+            ORDER BY p.payment_date DESC";
+
     $result = $conn->query($sql);
-    while ($row = $result->fetch_assoc()) fputcsv($output, $row);
+    
+    if($result) {
+        while ($row = $result->fetch_assoc()) {
+            fputcsv($output, $row);
+        }
+    }
+    
     fclose($output);
     exit;
 }

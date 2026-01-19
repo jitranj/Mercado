@@ -330,6 +330,8 @@ function openModal(id) {
     document.getElementById('newTenantForm').style.display = 'none';
     document.getElementById('reserveForm').style.display = 'none';
 
+    if(document.getElementById('editTenantForm')) document.getElementById('editTenantForm').style.display = 'none';
+
     // Clear any previous injected reservation/goodwill panels
     if (document.getElementById('goodwillInfo')) document.getElementById('goodwillInfo').remove();
     if (document.getElementById('paidUpBadge')) document.getElementById('paidUpBadge').remove();
@@ -390,8 +392,23 @@ function openModal(id) {
             } else {
                 // === 2. STANDARD OCCUPIED TENANT ===
                 document.getElementById('renterDetails').style.display = 'block';
-                document.getElementById('rName').innerText = d.renter.name;
-
+const rNameBox = document.getElementById('rName');
+                
+                // Reset layout
+                rNameBox.style.display = 'block'; 
+                rNameBox.style.textAlign = 'center'; 
+                
+                // 3px Margin = The Sweet Spot
+                rNameBox.innerHTML = `
+                    <span style="font-size:20px; font-weight:800; color:#1e293b; vertical-align:middle;">${d.renter.name}</span>
+                    <span onclick="toggleEditMode()" 
+                        style="cursor:pointer; font-size:16px; opacity:0.6; vertical-align:middle; display:inline-block; margin-left:3px;" 
+                        title="Edit Details">
+                        ✏️
+                    </span>
+                `;
+                
+                window.currentRenterData = d.renter;
                 // Contact & Email
                 document.getElementById('rContact').innerHTML = d.renter.contact +
                     (d.renter.email ? `<br><span style="font-size:12px; color:#3b82f6;">${d.renter.email}</span>` : '');
@@ -958,4 +975,46 @@ function deleteUser() {
             }
         })
         .catch(e => { console.error(e); showToast("Server Error", "error"); });
+}
+
+// --- EDIT RENTER FUNCTIONS ---
+
+function toggleEditMode() {
+    // 1. Hide the View Panel
+    document.getElementById('renterDetails').style.display = 'none';
+    
+    // 2. Show the Edit Form
+    document.getElementById('editTenantForm').style.display = 'block';
+
+    // 3. Populate Form with Current Data
+    const d = window.currentRenterData;
+    document.getElementById('editRenterId').value = d.id;
+    document.getElementById('editName').value = d.name;
+    document.getElementById('editContact').value = d.contact;
+    document.getElementById('editEmail').value = d.email || '';
+    document.getElementById('editStartDate').value = d.since; // Ensure database format is YYYY-MM-DD
+}
+
+function cancelEdit() {
+    // Switch back to View Mode
+    document.getElementById('editTenantForm').style.display = 'none';
+    document.getElementById('renterDetails').style.display = 'block';
+}
+
+function submitEditRenter() {
+    const form = document.getElementById('formEditRenter');
+    const fd = new FormData(form);
+
+    fetch('api_edit_renter.php', { method: 'POST', body: fd })
+    .then(r => r.json())
+    .then(d => {
+        if (d.success) {
+            showToast("Details Updated Successfully!", "success");
+            // Reload the modal to see changes (Fastest way)
+            openModal(window.currentStallId);
+        } else {
+            showToast(d.message || "Update Failed", "error");
+        }
+    })
+    .catch(e => { console.error(e); showToast("Server Error", "error"); });
 }
