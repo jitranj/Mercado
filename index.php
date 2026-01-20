@@ -1,4 +1,6 @@
 <?php
+ini_set('session.gc_maxlifetime', 10800);
+session_set_cookie_params(10800);
 session_start();
 if (!isset($_SESSION['user_id'])) {
     header("Location: login.php");
@@ -162,7 +164,7 @@ function render_stall($floor, $pasilyo, $stall_label, $data)
                     <?php echo htmlspecialchars($_SESSION['username']); ?>
                     (<?php echo ucfirst($_SESSION['role']); ?>)
                 </span>
-                <a href="logout.php" class="btn-logout" style="
+<a href="#" onclick="confirmAction('Sign Out', 'Are you sure you want to log out?', () => window.location.href='logout.php', 'logout'); return false;" class="btn-logout" style="
                     background: #ef4444; color: white; text-decoration: none; 
                     padding: 6px 12px; border-radius: 6px; font-size: 11px; font-weight: 700;
                     display: flex; align-items: center; gap: 5px;">
@@ -171,7 +173,6 @@ function render_stall($floor, $pasilyo, $stall_label, $data)
                     </svg>
                     Sign Out
                 </a>
-            </div>
         </div>
     </header>
 
@@ -900,6 +901,59 @@ function render_stall($floor, $pasilyo, $stall_label, $data)
         </div>
 
         <div id="toast-container"></div>
+
+<div id="systemModal" style="display:none; position:fixed; z-index:30000; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.5); backdrop-filter:blur(4px); align-items:center; justify-content:center;">
+    <div style="background:white; width:90%; max-width:400px; padding:25px; border-radius:12px; box-shadow:0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04); text-align:center; transform:scale(0.95); animation:modalPop 0.2s forwards;">
+        
+        <div id="sysIcon" style="font-size:40px; margin-bottom:15px;">⚠️</div>
+        <h3 id="sysTitle" style="margin:0 0 10px 0; color:#1e293b; font-size:20px;">Are you sure?</h3>
+        <p id="sysMessage" style="color:#64748b; font-size:14px; margin:0 0 25px 0; line-height:1.5;">Please confirm this action.</p>
+
+        <div style="display:flex; gap:10px; justify-content:center;">
+            <button id="sysBtnCancel" onclick="closeSysModal()" 
+                style="padding:10px 20px; background:#e2e8f0; color:#475569; border:none; border-radius:8px; font-weight:600; cursor:pointer; flex:1;">
+                Cancel
+            </button>
+            <button id="sysBtnConfirm" 
+                style="padding:10px 20px; background:#ef4444; color:white; border:none; border-radius:8px; font-weight:600; cursor:pointer; flex:1; box-shadow:0 4px 6px -1px rgba(239, 68, 68, 0.3);">
+                Confirm
+            </button>
+        </div>
+    </div>
+</div>
+
+<style>
+@keyframes modalPop { to { transform:scale(1); } }
+</style>
+
+<div id="securityModal" style="display:none; position:fixed; z-index:31000; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.6); backdrop-filter:blur(4px); align-items:center; justify-content:center;">
+    <div style="background:white; width:90%; max-width:380px; padding:30px; border-radius:12px; box-shadow:0 25px 50px -12px rgba(0,0,0,0.25); text-align:center; animation:secPop 0.2s forwards;">
+        
+        <div style="font-size:40px; margin-bottom:15px;">🔒</div>
+        
+        <h3 style="margin:0 0 10px 0; color:#1e293b; font-size:20px; font-weight:800;">Security Check</h3>
+        <p style="color:#64748b; font-size:14px; margin:0 0 20px 0;">Please enter your admin password to confirm this termination.</p>
+
+        <input type="password" id="secPassInput" placeholder="Enter Admin Password" 
+            style="width:100%; padding:12px; border:1px solid #cbd5e1; border-radius:8px; font-size:16px; margin-bottom:20px; text-align:center;">
+
+        <div style="display:flex; gap:10px;">
+            <button onclick="document.getElementById('securityModal').style.display='none'" 
+                style="flex:1; padding:12px; background:#e2e8f0; color:#475569; border:none; border-radius:8px; font-weight:bold; cursor:pointer;">
+                Cancel
+            </button>
+            <button onclick="submitSecurityCheck()" 
+                style="flex:1; padding:12px; background:#ef4444; color:white; border:none; border-radius:8px; font-weight:bold; cursor:pointer; box-shadow:0 4px 6px -1px rgba(239, 68, 68, 0.3);">
+                Confirm
+            </button>
+        </div>
+    </div>
+</div>
+
+<style>
+@keyframes secPop { from{transform:scale(0.95); opacity:0;} to{transform:scale(1); opacity:1;} }
+</style>
+
 </body>
 
 </html>

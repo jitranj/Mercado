@@ -65,10 +65,15 @@ function toggleMonthInput() {
 
 // --- 3. NAVIGATION & UI TOGGLES ---
 function switchFloor(f) {
+    // 1. Visual Switch
     document.querySelectorAll('.floor-view').forEach(el => el.classList.remove('active'));
     document.querySelectorAll('.toggle-btn[id^="btn-f"]').forEach(el => el.classList.remove('active'));
+    
     document.getElementById('floor-' + f).classList.add('active');
     document.getElementById('btn-f' + f).classList.add('active');
+
+    // 2. SAVE STATE (The Fix)
+    localStorage.setItem('activeFloor', f);
 }
 
 function toggleMode(btn, mode) {
@@ -227,11 +232,11 @@ function generateSOAReport() {
 }
 
 function sendPaymentReminders() {
-    if (confirm('Send payment reminders to all delinquent tenants?')) {
+    confirmAction("Send Reminders", "Send email reminders to ALL delinquent tenants?", () => {
         fetch('api_admin.php?action=send_reminders', { method: 'POST' })
             .then(r => r.json())
             .then(d => showToast(d.message || 'Reminders queued!', 'success'));
-    }
+    }, 'info'); // 'info' makes the button green/blue instead of red
 }
 
 function exportTenantData() {
@@ -322,15 +327,15 @@ function openModal(id) {
     document.getElementById('emptyState').style.display = 'none';
     document.getElementById('paymentForm').style.display = 'none';
 
-    document.getElementById('historyList').innerHTML = ''; 
-    if(document.getElementById('btnHistory')) document.getElementById('btnHistory').style.display = 'none';
-    
+    document.getElementById('historyList').innerHTML = '';
+    if (document.getElementById('btnHistory')) document.getElementById('btnHistory').style.display = 'none';
+
     document.getElementById('rDate').innerText = ""; // <--- NEW FIX: Wipes the old Start Date
 
     document.getElementById('newTenantForm').style.display = 'none';
     document.getElementById('reserveForm').style.display = 'none';
 
-    if(document.getElementById('editTenantForm')) document.getElementById('editTenantForm').style.display = 'none';
+    if (document.getElementById('editTenantForm')) document.getElementById('editTenantForm').style.display = 'none';
 
     // Clear any previous injected reservation/goodwill panels
     if (document.getElementById('goodwillInfo')) document.getElementById('goodwillInfo').remove();
@@ -392,12 +397,12 @@ function openModal(id) {
             } else {
                 // === 2. STANDARD OCCUPIED TENANT ===
                 document.getElementById('renterDetails').style.display = 'block';
-const rNameBox = document.getElementById('rName');
-                
+                const rNameBox = document.getElementById('rName');
+
                 // Reset layout
-                rNameBox.style.display = 'block'; 
-                rNameBox.style.textAlign = 'center'; 
-                
+                rNameBox.style.display = 'block';
+                rNameBox.style.textAlign = 'center';
+
                 // 3px Margin = The Sweet Spot
                 rNameBox.innerHTML = `
                     <span style="font-size:20px; font-weight:800; color:#1e293b; vertical-align:middle;">${d.renter.name}</span>
@@ -407,7 +412,7 @@ const rNameBox = document.getElementById('rName');
                         ✏️
                     </span>
                 `;
-                
+
                 window.currentRenterData = d.renter;
                 // Contact & Email
                 document.getElementById('rContact').innerHTML = d.renter.contact +
@@ -486,7 +491,7 @@ const rNameBox = document.getElementById('rName');
                 } else {
                     btnHistory.style.display = 'none';
                 }
-// --- HISTORY TABLE FIX (Clean Dates) ---
+                // --- HISTORY TABLE FIX (Clean Dates) ---
                 let hHtml = '';
                 d.history.forEach(h => {
                     let label = '';
@@ -501,7 +506,7 @@ const rNameBox = document.getElementById('rName');
                         // Rent: Format "2026-01-01" -> "Jan 2026"
                         let billDate = new Date(h.month_paid_for);
                         let monthStr = billDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-                        
+
                         label = `<span style="background:#dbeafe; color:#1e40af; padding:2px 6px; border-radius:4px; font-size:10px; font-weight:800;">RENT</span> 
                                  <span style="font-size:11px; color:#334155; font-weight:600; margin-left:4px;">${monthStr}</span>`;
                     }
@@ -628,21 +633,38 @@ function submitNewTenant() {
 }
 
 function terminateContract() {
-    if (confirm("Are you sure you want to terminate this contract?")) {
+    requestPassword((adminPass) => {
         const fd = new FormData();
         fd.append('renter_id', window.currentRenterId);
         fd.append('stall_id', window.currentStallId);
+        fd.append('admin_password', adminPass);
+
         fetch('api_terminate.php', { method: 'POST', body: fd })
             .then(r => r.json())
             .then(d => {
                 if (d.success) {
                     showToast("Contract Terminated", "success");
-                    setTimeout(() => location.reload(), 1000);
+                    
+                    // 1. Close the Main Modal
+                    closeModal();
+
+                    // 2. Update the Map Block (Turn it White/Available)
+                    if (typeof refreshMapBlock === "function") {
+                        refreshMapBlock(window.currentStallId);
+                    } else {
+                        // Fallback if the engine isn't loaded
+                        setTimeout(() => location.reload(), 1000); 
+                    }
+
                 } else {
-                    showToast("Error terminating", "error");
+                    showToast(d.message || "Error terminating", "error");
                 }
+            })
+            .catch(e => { 
+                console.error(e); 
+                showToast("Network Error (Check Console)", "error"); 
             });
-    }
+    });
 }
 
 // --- 8. SEARCH & HOVER LOGIC (Preserved) ---
@@ -775,21 +797,30 @@ function submitReservation() {
 }
 
 function processReservation(action) {
-    if (!confirm(`Confirm: ${action.toUpperCase()} this reservation?`)) return;
+    // Determine the text and color based on the action
+    let title = action === 'approve' ? "Approve Tenant" : "Reject Reservation";
+    let msg = action === 'approve' 
+              ? "Are you sure you want to convert this applicant into an Official Tenant?" 
+              : "Are you sure you want to cancel this reservation and open the unit?";
+    let type = action === 'approve' ? 'info' : 'danger'; // 'info' = Green, 'danger' = Red
 
-    const fd = new FormData();
-    fd.append('action', action);
-    fd.append('stall_id', window.currentStallId);
-    fd.append('renter_id', window.currentRenterId);
+    // USE NEW MODAL
+    confirmAction(title, msg, () => {
+        const fd = new FormData();
+        fd.append('action', action);
+        fd.append('stall_id', window.currentStallId);
+        fd.append('renter_id', window.currentRenterId);
 
-    fetch('api_reservation_action.php', { method: 'POST', body: fd })
-        .then(r => r.json()).then(d => {
-            if (d.success) {
-                showToast(d.message, "success");
-                setTimeout(() => location.reload(), 1000);
-            }
-            else { showToast(d.message, "error"); }
-        });
+        fetch('api_reservation_action.php', { method: 'POST', body: fd })
+            .then(r => r.json()).then(d => {
+                if (d.success) {
+                    showToast(d.message, "success");
+                    setTimeout(() => location.reload(), 1000);
+                }
+                else { showToast(d.message, "error"); }
+            })
+            .catch(e => { console.error(e); showToast("Network Error", "error"); });
+    }, type);
 }
 
 function startApproval() {
@@ -948,7 +979,6 @@ function submitAdminUserForm() {
 function deleteUser() {
     const form = document.getElementById('adminUserForm');
     const fd = new FormData(form);
-    const targetId = fd.get('target_user_id');
 
     // 1. Security Check: Admin Password Required
     if (!fd.get('admin_password')) {
@@ -956,33 +986,32 @@ function deleteUser() {
         return;
     }
 
-    // 2. Double Confirmation
-    if (!confirm("Are you sure you want to PERMANENTLY DELETE this user? This cannot be undone.")) {
-        return;
-    }
+    // 2. USE NEW MODAL SYSTEM (Replaces confirm())
+    confirmAction("Delete User", "Are you sure you want to PERMANENTLY DELETE this staff account? This cannot be undone.", () => {
+        
+        // 3. Prepare Payload manually
+        fd.set('action', 'delete_user');
 
-    // 3. Prepare Payload manually (since we need to change the action)
-    fd.set('action', 'delete_user');
-
-    fetch('api_admin.php', { method: 'POST', body: fd })
-        .then(r => r.json())
-        .then(d => {
-            if (d.success) {
-                showToast("User Deleted Successfully", "success");
-                toggleUserForm('list');
-            } else {
-                showToast(d.message || "Error deleting user", "error");
-            }
-        })
-        .catch(e => { console.error(e); showToast("Server Error", "error"); });
+        fetch('api_admin.php', { method: 'POST', body: fd })
+            .then(r => r.json())
+            .then(d => {
+                if (d.success) {
+                    showToast("User Deleted Successfully", "success");
+                    toggleUserForm('list');
+                } else {
+                    showToast(d.message || "Error deleting user", "error");
+                }
+            })
+            .catch(e => { console.error(e); showToast("Server Error", "error"); });
+            
+    }); // End of confirmAction
 }
-
 // --- EDIT RENTER FUNCTIONS ---
 
 function toggleEditMode() {
     // 1. Hide the View Panel
     document.getElementById('renterDetails').style.display = 'none';
-    
+
     // 2. Show the Edit Form
     document.getElementById('editTenantForm').style.display = 'block';
 
@@ -1006,15 +1035,156 @@ function submitEditRenter() {
     const fd = new FormData(form);
 
     fetch('api_edit_renter.php', { method: 'POST', body: fd })
-    .then(r => r.json())
-    .then(d => {
-        if (d.success) {
-            showToast("Details Updated Successfully!", "success");
-            // Reload the modal to see changes (Fastest way)
-            openModal(window.currentStallId);
-        } else {
-            showToast(d.message || "Update Failed", "error");
-        }
-    })
-    .catch(e => { console.error(e); showToast("Server Error", "error"); });
+        .then(r => r.json())
+        .then(d => {
+            if (d.success) {
+                showToast("Details Updated Successfully!", "success");
+                // Reload the modal to see changes (Fastest way)
+                openModal(window.currentStallId);
+            } else {
+                showToast(d.message || "Update Failed", "error");
+            }
+        })
+        .catch(e => { console.error(e); showToast("Server Error", "error"); });
 }
+
+// --- UNIVERSAL MODAL LOGIC ---
+
+function closeSysModal() {
+    document.getElementById('systemModal').style.display = 'none';
+}
+
+function confirmAction(title, message, yesCallback, type = 'danger') {
+    const m = document.getElementById('systemModal');
+    const btn = document.getElementById('sysBtnConfirm');
+    const icon = document.getElementById('sysIcon');
+    
+    document.getElementById('sysTitle').innerText = title;
+    document.getElementById('sysMessage').innerText = message;
+    
+    // Style based on type
+    if (type === 'danger') {
+        icon.innerText = "⚠️";
+        btn.style.background = "#ef4444"; // Red
+        btn.innerText = "Yes, Do It";
+    } else if (type === 'logout') {
+        icon.innerText = "👋";
+        btn.style.background = "#ef4444";
+        btn.innerText = "Sign Out";
+    } else {
+        icon.innerText = "ℹ️";
+        btn.style.background = "#10b981"; // Green
+        btn.innerText = "Okay";
+    }
+
+    // Bind the "Yes" button
+    btn.onclick = function() {
+        closeSysModal();
+        if (yesCallback) yesCallback();
+    };
+    
+    // Show it using Flex to center it
+    m.style.display = 'flex';
+}
+
+// --- SECURITY MODAL LOGIC ---
+let pendingSecurityCallback = null;
+
+function requestPassword(callback) {
+    pendingSecurityCallback = callback;
+    document.getElementById('secPassInput').value = ''; // Clear old input
+    document.getElementById('securityModal').style.display = 'flex';
+    document.getElementById('secPassInput').focus();
+}
+
+function submitSecurityCheck() {
+    const pass = document.getElementById('secPassInput').value;
+    if (!pass) {
+        showToast("⚠️ Password required", "error");
+        return;
+    }
+    
+    // Hide modal and run the callback with the password
+    document.getElementById('securityModal').style.display = 'none';
+    if (pendingSecurityCallback) {
+        pendingSecurityCallback(pass);
+        pendingSecurityCallback = null; // Reset
+    }
+}
+
+// --- 2-HOUR INACTIVITY WATCHDOG ---
+(function() {
+    // 1. CONFIGURATION
+    const IDLE_LIMIT = 2 * 60 * 60 * 1000;   // 2 Hours
+    const GRACE_PERIOD = 15 * 60 * 1000;     // 15 Minutes
+    
+    let idleTimer;   // The main 2-hour timer
+    let logoutTimer; // The 15-minute panic timer
+    let isWarningActive = false;
+
+    // 2. Main Timer: Runs in the background
+    function startIdleTimer() {
+        if (isWarningActive) return; // Don't restart if the warning is already up
+        
+        clearTimeout(idleTimer);
+        idleTimer = setTimeout(showInactivityWarning, IDLE_LIMIT);
+    }
+
+    // 3. The Warning: Reuses your existing System Modal
+    function showInactivityWarning() {
+        isWarningActive = true;
+
+        // Grab your existing modal elements
+        const modal = document.getElementById('systemModal');
+        const title = document.getElementById('sysTitle');
+        const msg = document.getElementById('sysMessage');
+        const btnYes = document.getElementById('sysBtnConfirm');
+        const btnNo = document.getElementById('sysBtnCancel');
+        const icon = document.getElementById('sysIcon');
+
+        // Change Text & Look
+        title.innerText = "Session Timeout";
+        msg.innerText = "No activity detected for 2 hours. You will be signed out in 15 minutes.";
+        icon.innerText = "⏰"; 
+        
+        btnYes.innerText = "I'm Here!";
+        btnYes.style.background = "#10b981"; // Green
+        btnNo.innerText = "Dismiss";
+
+        // Logic: Clicking ANY button saves the session
+        const userIsAlive = () => {
+            clearTimeout(logoutTimer);    // Stop the logout countdown
+            isWarningActive = false;      // Let mouse movements count again
+            modal.style.display = 'none'; // Hide modal
+            startIdleTimer();             // Restart the 2-hour clock
+        };
+
+        btnYes.onclick = userIsAlive;
+        btnNo.onclick = userIsAlive;
+
+        // Show the modal
+        modal.style.display = 'flex';
+
+        // 4. The Final Countdown (15 Mins)
+        logoutTimer = setTimeout(() => {
+            window.location.href = 'logout.php';
+        }, GRACE_PERIOD);
+    }
+
+    // 5. Activity Listeners: Reset the 2-hour clock on movement
+    ['mousemove', 'mousedown', 'keypress', 'touchmove', 'scroll'].forEach(evt => {
+        document.addEventListener(evt, startIdleTimer);
+    });
+
+    // Start immediately
+    startIdleTimer();
+})();
+
+// --- AUTO-RESTORE FLOOR ---
+// Checks if the user was previously on Floor 2 and keeps them there
+document.addEventListener('DOMContentLoaded', () => {
+    const savedFloor = localStorage.getItem('activeFloor');
+    if (savedFloor) {
+        switchFloor(savedFloor);
+    }
+});
