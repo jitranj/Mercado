@@ -103,6 +103,33 @@ elseif ($type === 'red_list') {
             .print-btn { display: none; }
         }
     </style>
+
+    <style>
+    /* ... your existing styles ... */
+
+    @media print {
+        footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            text-align: center;
+            font-size: 10px;
+            color: #94a3b8;
+            padding: 10px;
+            border-top: 1px solid #e2e8f0;
+        }
+    }
+    /* Hide footer on screen if you want, or keep it visible */
+    footer {
+        margin-top: 50px;
+        text-align: center;
+        font-size: 11px;
+        color: #94a3b8;
+        padding: 20px 0;
+    }
+</style>
+
 </head>
 <body>
     <button class="print-btn" onclick="window.print()">🖨️ PRINT REPORT</button>
@@ -191,5 +218,10 @@ elseif ($type === 'red_list') {
             </div>
         </div>
     </div>
+
+      <footer>
+    System Generated Report | &copy; 2026 Mall Monitor System | Developed by <strong>TaruProd</strong>
+</footer>
+
 </body>
 </html>

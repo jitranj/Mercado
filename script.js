@@ -330,17 +330,22 @@ function openModal(id) {
     document.getElementById('historyList').innerHTML = '';
     if (document.getElementById('btnHistory')) document.getElementById('btnHistory').style.display = 'none';
 
-    document.getElementById('rDate').innerText = ""; // <--- NEW FIX: Wipes the old Start Date
+    document.getElementById('rDate').innerText = ""; 
 
     document.getElementById('newTenantForm').style.display = 'none';
     document.getElementById('reserveForm').style.display = 'none';
 
     if (document.getElementById('editTenantForm')) document.getElementById('editTenantForm').style.display = 'none';
 
-    // Clear any previous injected reservation/goodwill panels
+    // Clear any previous injected elements
     if (document.getElementById('goodwillInfo')) document.getElementById('goodwillInfo').remove();
     if (document.getElementById('paidUpBadge')) document.getElementById('paidUpBadge').remove();
     if (document.getElementById('reservationPanel')) document.getElementById('reservationPanel').remove();
+
+    // --- DEFINE PERMISSION GROUPS ---
+    const canFinancials = ['admin', 'manager', 'staff_billing', 'staff_cashier'].includes(USER_ROLE);
+    const canOperations = ['admin', 'manager'].includes(USER_ROLE); // Edit, Terminate, Reserve
+    const isMonitor     = USER_ROLE === 'staff_monitor';
 
     fetch(`api_stall_details.php?id=${id}`).then(r => r.json()).then(d => {
         window.currentStallId = id;
@@ -355,6 +360,8 @@ function openModal(id) {
         const btnContract = document.getElementById('btnViewContract');
         const btnSOA = document.getElementById('btnGenerateSOA');
         const btnAssign = document.getElementById('btnAssign');
+        const btnReserve = document.getElementById('btnReserve');
+        const btnHistory = document.getElementById('btnHistory');
 
         if (d.renter) {
             // === 1. CHECK IF RESERVATION ===
@@ -368,28 +375,44 @@ function openModal(id) {
                 btnTerm.style.display = 'none';
                 btnContract.style.display = 'none';
                 btnSOA.style.display = 'none';
+                btnHistory.style.display = 'none';
 
                 // Inject Reservation Controls
                 const resPanel = document.createElement('div');
                 resPanel.id = 'reservationPanel';
                 resPanel.style.cssText = "background:#fffbeb; border:1px solid #fcd34d; padding:20px; border-radius:8px; text-align:center; margin-top:20px;";
+
+                // SECURE UI: Only Admin/Manager can Approve/Reject
+                let actionBtns = '';
+                if (canOperations) {
+                    actionBtns = `
+                        <div style="display:flex; gap:10px; justify-content:center;">
+                            <button onclick="startApproval()" style="padding:12px 20px; background:#10b981; color:white; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">
+                                ✅ Approve
+                            </button>
+                            <button onclick="processReservation('cancel')" style="padding:12px 20px; background:#ef4444; color:white; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">
+                                ❌ Reject
+                            </button>
+                        </div>
+                    `;
+                } else {
+                    actionBtns = `
+                        <div style="padding:10px; background:rgba(255,255,255,0.5); border:1px dashed #b45309; color:#92400e; font-weight:600; font-size:13px; border-radius:6px;">
+                            🔒 Awaiting Manager Approval
+                        </div>
+                    `;
+                }
+
                 resPanel.innerHTML = `
                     <h3 style="margin:0 0 10px 0; color:#b45309;">⚠️ RESERVATION PENDING</h3>
                     <p style="font-size:13px; color:#78350f; margin-bottom:15px;">
-                        This unit is reserved. Please approve to convert to Official Tenant, or cancel to open the unit.
+                        This unit is reserved.
                     </p>
-                    <div style="display:flex; gap:10px; justify-content:center;">
-                        <button onclick="startApproval()" style="padding:12px 20px; background:#10b981; color:white; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">
-                            ✅ Approve
-                        </button>
-                        <button onclick="processReservation('cancel')" style="padding:12px 20px; background:#ef4444; color:white; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">
-                            ❌ Reject
-                        </button>
-                    </div>
+                    ${actionBtns}
                 `;
                 document.getElementById('renterDetails').appendChild(resPanel);
 
-                // Show Profile Pic if any
+                // Show Profile Pic
                 let img = (d.renter.image && d.renter.image !== 'null') ? d.renter.image : `https://ui-avatars.com/api/?name=${d.renter.name}&background=random`;
                 document.getElementById('mImage').src = img;
                 document.getElementById('modalProfilePic').style.display = 'block';
@@ -398,52 +421,53 @@ function openModal(id) {
                 // === 2. STANDARD OCCUPIED TENANT ===
                 document.getElementById('renterDetails').style.display = 'block';
                 const rNameBox = document.getElementById('rName');
-
+                
                 // Reset layout
-                rNameBox.style.display = 'block';
-                rNameBox.style.textAlign = 'center';
-
-                // 3px Margin = The Sweet Spot
-                rNameBox.innerHTML = `
-                    <span style="font-size:20px; font-weight:800; color:#1e293b; vertical-align:middle;">${d.renter.name}</span>
+                rNameBox.style.display = 'block'; 
+                rNameBox.style.textAlign = 'center'; 
+                
+                // SECURITY: Only Admin/Manager sees the Edit Pencil
+                let editIcon = '';
+                if (canOperations) {
+                    editIcon = `
                     <span onclick="toggleEditMode()" 
                         style="cursor:pointer; font-size:16px; opacity:0.6; vertical-align:middle; display:inline-block; margin-left:3px;" 
                         title="Edit Details">
                         ✏️
-                    </span>
-                `;
+                    </span>`;
+                }
 
+                rNameBox.innerHTML = `
+                    <span style="font-size:20px; font-weight:800; color:#1e293b; vertical-align:middle;">${d.renter.name}</span>
+                    ${editIcon}
+                `;
+                
                 window.currentRenterData = d.renter;
-                // Contact & Email
+
                 document.getElementById('rContact').innerHTML = d.renter.contact +
                     (d.renter.email ? `<br><span style="font-size:12px; color:#3b82f6;">${d.renter.email}</span>` : '');
 
                 document.getElementById('rDate').innerText = "Start Date: " + (d.renter.since || "N/A");
 
-                // --- PAYMENT LOGIC (FIXED) ---
+                // --- PAYMENT BUTTON LOGIC (Admin, Manager, Billing, Cashier) ---
                 const nextDue = d.renter.next_due;
                 const today = new Date().toISOString().slice(0, 7);
-
-                // Global Flag for Payment Form
                 window.isRentPaidUp = (nextDue > today);
 
                 document.getElementById('payMonth').value = nextDue;
                 document.getElementById('payAmount').value = d.stall.rate;
 
                 if (window.isRentPaidUp) {
-                    // 1. Paid Up: Show Badge
                     let badge = document.createElement('div');
                     badge.id = 'paidUpBadge';
                     badge.innerHTML = "✅ RENT UP TO DATE";
                     badge.style.cssText = "background:#dcfce7; color:#166534; padding:12px; border-radius:8px; font-weight:700; text-align:center; margin-bottom:15px; border:1px solid #bbf7d0; font-size:14px;";
                     document.getElementById('renterDetails').insertBefore(badge, btnPay);
 
-                    // 2. Button stays visible (Generic Text) for Goodwill
-                    btnPay.style.display = (USER_ROLE === 'admin' || USER_ROLE === 'staff_cashier') ? 'block' : 'none';
+                    btnPay.style.display = canFinancials ? 'block' : 'none';
                     btnPay.innerText = "Record Payment";
                 } else {
-                    // 3. Rent Due: Show specific text
-                    btnPay.style.display = (USER_ROLE === 'admin' || USER_ROLE === 'staff_cashier') ? 'block' : 'none';
+                    btnPay.style.display = canFinancials ? 'block' : 'none';
                     btnPay.innerText = "Pay Bill for: " + nextDue;
                 }
 
@@ -462,36 +486,37 @@ function openModal(id) {
                     document.getElementById('rName').insertAdjacentElement('afterend', gwDiv);
                 }
 
-                // --- RESTORED: PROFILE PICTURE ---
+                // --- PROFILE PICTURE ---
                 let img = (d.renter.image && d.renter.image !== 'null') ? d.renter.image : `https://ui-avatars.com/api/?name=${d.renter.name}&background=random`;
                 document.getElementById('mImage').src = img;
                 document.getElementById('modalProfilePic').style.display = 'block';
 
-                // --- RESTORED: BUTTONS (Contract, Terminate, SOA) ---
+                // --- ACTION BUTTONS ---
 
-                // Contract Button
-                if (d.renter.contract && d.renter.contract !== 'null') {
+                // Contract: Admin, Manager, Billing, Cashier (NOT Monitor)
+                if (d.renter.contract && d.renter.contract !== 'null' && canFinancials) {
                     btnContract.style.display = 'block';
                     btnContract.onclick = () => window.open(d.renter.contract, '_blank');
                 } else btnContract.style.display = 'none';
 
-                // Terminate Button (Admin Only)
-                btnTerm.style.display = (USER_ROLE === 'admin') ? 'block' : 'none';
+                // Terminate: Admin & Manager Only
+                btnTerm.style.display = canOperations ? 'block' : 'none';
 
-                // SOA Button (Admin or Billing)
-                if (USER_ROLE === 'admin' || USER_ROLE === 'staff_billing') {
+                // SOA: Admin, Manager, Billing, Cashier
+                if (canFinancials) {
                     btnSOA.style.display = 'block';
                     btnSOA.onclick = () => window.open(`soa_print.php?id=${d.renter.id}`, '_blank');
                 } else btnSOA.style.display = 'none';
 
-                const btnHistory = document.getElementById('btnHistory');
-                if (['admin', 'manager', 'staff_billing', 'staff_cashier'].includes(USER_ROLE)) {
+                // History: Admin, Manager, Billing, Cashier
+                if (canFinancials) {
                     btnHistory.style.display = 'block';
                     btnHistory.onclick = () => window.open(`print_history.php?id=${d.renter.id}`, '_blank');
                 } else {
                     btnHistory.style.display = 'none';
                 }
-                // --- HISTORY TABLE FIX (Clean Dates) ---
+
+                // --- HISTORY TABLE ---
                 let hHtml = '';
                 d.history.forEach(h => {
                     let label = '';
@@ -499,14 +524,11 @@ function openModal(id) {
                     let dateStr = h.payment_date ? new Date(h.payment_date).toLocaleDateString() : 'N/A';
 
                     if (h.payment_type === 'goodwill') {
-                        // Goodwill: Just show the GW Badge
                         label = `<span style="background:#ffedd5; color:#c2410c; padding:2px 6px; border-radius:4px; font-size:10px; font-weight:800;">GW</span>`;
                         amtStyle += 'color:#c2410c;';
                     } else {
-                        // Rent: Format "2026-01-01" -> "Jan 2026"
                         let billDate = new Date(h.month_paid_for);
                         let monthStr = billDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-
                         label = `<span style="background:#dbeafe; color:#1e40af; padding:2px 6px; border-radius:4px; font-size:10px; font-weight:800;">RENT</span> 
                                  <span style="font-size:11px; color:#334155; font-weight:600; margin-left:4px;">${monthStr}</span>`;
                     }
@@ -532,7 +554,15 @@ function openModal(id) {
             document.getElementById('modalProfilePic').style.display = 'none';
             document.getElementById('emptyState').style.display = 'block';
             document.getElementById('historyList').innerHTML = '';
-            btnAssign.style.display = (USER_ROLE === 'admin' || USER_ROLE === 'manager') ? 'block' : 'none';
+            
+            // Assign/Reserve: Admin & Manager Only
+            if (canOperations) {
+                btnAssign.style.display = 'block';
+                btnReserve.style.display = 'block';
+            } else {
+                btnAssign.style.display = 'none';
+                btnReserve.style.display = 'none';
+            }
         }
     }).catch(e => { console.error(e); showToast("Error loading details", "error"); });
 }
@@ -1021,7 +1051,15 @@ function toggleEditMode() {
     document.getElementById('editName').value = d.name;
     document.getElementById('editContact').value = d.contact;
     document.getElementById('editEmail').value = d.email || '';
-    document.getElementById('editStartDate').value = d.since; // Ensure database format is YYYY-MM-DD
+    
+    // Date Handling
+    document.getElementById('editStartDate').value = d.start_date || d.since; 
+
+    // --- SECURITY FIX: TARGET THE SPECIFIC INPUT ---
+    // We use getElementById to find the container, then find the input INSIDE it.
+    // This prevents wiping the wrong password box in the Settings menu.
+    const passwordBox = document.querySelector('#formEditRenter input[name="admin_password"]');
+    if (passwordBox) passwordBox.value = "";
 }
 
 function cancelEdit() {
@@ -1039,13 +1077,28 @@ function submitEditRenter() {
         .then(d => {
             if (d.success) {
                 showToast("Details Updated Successfully!", "success");
-                // Reload the modal to see changes (Fastest way)
+                
+                // --- SECURITY FIX: WIPE SPECIFIC PASSWORD BOX ---
+                const passwordBox = document.querySelector('#formEditRenter input[name="admin_password"]');
+                if (passwordBox) passwordBox.value = "";
+
+                // Reload the modal to see changes
                 openModal(window.currentStallId);
             } else {
                 showToast(d.message || "Update Failed", "error");
+                
+                // Optional: Clear password on failure too
+                const passwordBox = document.querySelector('#formEditRenter input[name="admin_password"]');
+                if (passwordBox) passwordBox.value = "";
             }
         })
-        .catch(e => { console.error(e); showToast("Server Error", "error"); });
+        .catch(e => { 
+            console.error(e); 
+            showToast("Server Error", "error"); 
+            // Safety wipe
+            const passwordBox = document.querySelector('#formEditRenter input[name="admin_password"]');
+            if (passwordBox) passwordBox.value = "";
+        });
 }
 
 // --- UNIVERSAL MODAL LOGIC ---

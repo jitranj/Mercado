@@ -1,7 +1,24 @@
 <?php
 header('Content-Type: application/json');
+session_start(); // 1. Start Session
 include 'db_connect.php';
 
+// --- SECURITY GATEKEEPER START ---
+// 1. Check if User is Logged In
+if (!isset($_SESSION['user_id'])) {
+    echo json_encode(['success' => false, 'message' => 'Unauthorized']);
+    exit;
+}
+
+// 2. Check Role (Only Admin & Manager can assign tenants)
+$current_role = $_SESSION['role'] ?? 'staff';
+if (!in_array($current_role, ['admin', 'manager'])) {
+    echo json_encode(['success' => false, 'message' => '⛔ Access Denied: Managers/Admins only.']);
+    exit;
+}
+// --- SECURITY GATEKEEPER END ---
+
+// [ORIGINAL LOGIC STARTS HERE - PRESERVED EXACTLY]
 $target_dir = "uploads/";
 if (!is_dir($target_dir)) mkdir($target_dir, 0777, true);
 
@@ -64,7 +81,7 @@ try {
         $types = "ssssd";
         $params = [$name, $contact, $email, $start_date, $goodwill_total];
 
-        // Only update file paths if new ones were uploaded
+        // Only update file paths if new ones were uploaded (PRESERVED LOGIC)
         if ($contract_path) { 
             $sql .= ", contract_file = ?"; 
             $types .= "s"; 

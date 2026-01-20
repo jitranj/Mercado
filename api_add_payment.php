@@ -1,19 +1,37 @@
 <?php
 header('Content-Type: application/json');
+session_start();
 include 'db_connect.php';
+
+// 1. SECURITY: Check Login
+if (!isset($_SESSION['user_id'])) {
+    echo json_encode(['success' => false, 'message' => 'Session expired']);
+    exit;
+}
+
+// 2. SECURITY: Role Check
+// Allowed: Admin, Manager, Billing, Cashier
+// Blocked: Monitor
+$allowed_roles = ['admin', 'manager', 'staff_billing', 'staff_cashier'];
+$current_role = $_SESSION['role'] ?? 'staff_monitor';
+
+if (!in_array($current_role, $allowed_roles)) {
+    echo json_encode(['success' => false, 'message' => '⛔ Unauthorized: Monitors cannot record payments.']);
+    exit;
+}
 
 $renter_id = $_POST['renter_id'] ?? 0;
 $date_paid = $_POST['date_paid'] ?? date('Y-m-d');
 $type = $_POST['payment_type'] ?? 'rent';
 $or_no = $_POST['or_no'] ?? ''; 
 
-// 1. Basic ID Check (Removed the global OR check here)
+// 3. Basic ID Check
 if(!$renter_id) {
     echo json_encode(['success' => false, 'message' => 'Missing Renter ID']);
     exit;
 }
 
-// 2. OR Validation & Duplicate Check (Only if OR is provided)
+// 4. OR Validation & Duplicate Check (Only if OR is provided)
 if (!empty($or_no)) {
     $check = $conn->prepare("SELECT payment_id FROM payments WHERE or_no = ?");
     $check->bind_param("s", $or_no);

@@ -151,5 +151,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <button type="submit">Sign In</button>
         </form>
     </div>
+    <div style="position: fixed; bottom: 10px; width: 100%; text-align: center; color: #64748b; font-size: 11px; font-family: 'Inter', sans-serif;">
+    &copy; 2026 Mall Monitor System | Developed by <span style="font-weight:700; color:#3b82f6;">TaruProd</span>
+</div>
 </body>
 </html>
