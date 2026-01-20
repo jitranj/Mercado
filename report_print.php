@@ -128,6 +128,29 @@ elseif ($type === 'red_list') {
         color: #94a3b8;
         padding: 20px 0;
     }
+
+    @media print {
+        /* 1. Hides the Browser's ugly Header/Footer */
+        @page {
+            margin: 0; 
+            size: auto;
+        }
+
+        /* 2. Adds clean whitespace around your paper so text isn't cut off */
+        body {
+            margin: 1.25cm; 
+        }
+
+        /* 3. Ensures your custom footer stays at the bottom */
+        footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 10px;
+            background: white; /* Hides content behind it */
+        }
+    }
 </style>
 
 </head>

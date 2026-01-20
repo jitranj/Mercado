@@ -1,9 +1,7 @@
 <?php
 include 'db_connect.php';
 
-// HELPER: Renders one SOA (Reusable for Bulk or Single)
 function renderSOA($conn, $renter_id) {
-    // 1. Fetch Tenant & Stall Info
     $sql = "SELECT r.*, s.stall_number, s.pasilyo, s.monthly_rate 
             FROM renters r 
             JOIN stalls s ON r.stall_id = s.id 
@@ -15,14 +13,12 @@ function renderSOA($conn, $renter_id) {
 
     if (!$renter) return;
 
-    // 2. Calculate Unpaid Months
     $pay_sql = "SELECT MAX(month_paid_for) as last_payment FROM payments WHERE renter_id = ? AND payment_type = 'rent'";
     $p_stmt = $conn->prepare($pay_sql);
     $p_stmt->bind_param("i", $renter_id);
     $p_stmt->execute();
     $last_pay = $p_stmt->get_result()->fetch_assoc()['last_payment'];
 
-    // Start counting from next month after last payment, OR start date
     $start_calc = $last_pay ? date('Y-m-01', strtotime($last_pay . ' +1 month')) : date('Y-m-01', strtotime($renter['start_date']));
     $current_date = date('Y-m-01');
 
@@ -30,7 +26,6 @@ function renderSOA($conn, $renter_id) {
     $total_due = 0;
     $monthly_rate = $renter['monthly_rate'];
 
-    // --- GOODWILL LOGIC ---
     $gw_total = isset($renter['goodwill_total']) ? floatval($renter['goodwill_total']) : 50000.00;
     $g_sql = "SELECT SUM(amount) FROM payments WHERE renter_id = ? AND payment_type = 'goodwill'";
     $g_stmt = $conn->prepare($g_sql);
@@ -42,7 +37,6 @@ function renderSOA($conn, $renter_id) {
     $goodwill_due = $gw_total - $gw_paid;
     if($goodwill_due < 0) $goodwill_due = 0;
 
-    // --- RENT LOOP ---
     $d1 = new DateTime($start_calc);
     $d2 = new DateTime($current_date);
     $d2->modify( '+1 month' ); 
@@ -58,7 +52,6 @@ function renderSOA($conn, $renter_id) {
 
     $grand_total = $total_due + $goodwill_due;
     
-    // Only print if there is actually a balance (for Bulk Mode)
     if ($grand_total <= 0) return;
 
     $period_string = "";
@@ -70,7 +63,6 @@ function renderSOA($conn, $renter_id) {
         $period_string = "NO PENDING RENT";
     }
     
-    // --- HTML OUTPUT ---
     ?>
     <div class="page-container">
         <div class="header-grid">
@@ -142,7 +134,6 @@ function renderSOA($conn, $renter_id) {
                     <td style="vertical-align:top;"><strong>RENTAL FEE</strong></td>
                     <td>
                         <?php 
-                            // List first 3 months explicitly, then summarize if too many
                             $count = 0;
                             foreach($unpaid_months as $m) {
                                 if($count < 5) echo $m . "<br>";
@@ -234,7 +225,6 @@ function renderSOA($conn, $renter_id) {
             position: relative;
         }
 
-        /* HEADER */
         .header-grid { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
         .logo-box { width: 100px; height: 100px; text-align: center; }
         .logo-box img { max-width: 100%; max-height: 100%; }
@@ -254,7 +244,6 @@ function renderSOA($conn, $renter_id) {
             letter-spacing: 1px;
         }
 
-        /* RECIPIENT BOX */
         .recipient-box { margin-bottom: 20px; border: 1px solid #000; padding: 10px; }
         .info-table { width: 100%; font-size: 12px; }
         .info-table td { padding: 3px; }
@@ -262,27 +251,23 @@ function renderSOA($conn, $renter_id) {
         
         .intro-text { font-size: 12px; margin-bottom: 15px; }
 
-        /* MAIN TABLE */
         .breakdown { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 20px; }
         .breakdown th, .breakdown td { border: 1px solid #000; padding: 8px; }
         .breakdown th { background: #f3f4f6; text-align: center; }
         .amount-col { text-align: right; font-weight: bold; width: 120px; }
         .total-row { background: #e5e7eb; font-weight: bold; }
 
-        /* BANK DETAILS */
         .bank-details { margin-bottom: 30px; border: 1px dashed #000; padding: 10px; font-size: 11px; }
         .bank-details h4 { margin: 0 0 5px; text-decoration: underline; }
         .bank-details table { width: 100%; }
         .bank-details td { padding: 2px; }
 
-        /* FOOTER */
         .footer-grid { display: flex; justify-content: space-between; margin-top: 40px; margin-bottom: 30px; }
         .sign-box { width: 45%; text-align: center; }
         .sign-box .role { text-align: left; font-size: 12px; margin-bottom: 30px; }
         .sign-box .name { font-weight: bold; text-decoration: underline; font-size: 13px; text-transform: uppercase; }
         .sign-box .title { font-size: 11px; }
 
-        /* NOTES */
         .notes-section { font-size: 10px; border-top: 2px solid #000; padding-top: 10px; }
         .notes-section ol { padding-left: 20px; margin: 5px 0; }
 
@@ -297,7 +282,6 @@ function renderSOA($conn, $renter_id) {
     </style>
 
     <style>
-    /* ... your existing styles ... */
 
     @media print {
         footer {
@@ -312,13 +296,32 @@ function renderSOA($conn, $renter_id) {
             border-top: 1px solid #e2e8f0;
         }
     }
-    /* Hide footer on screen if you want, or keep it visible */
     footer {
         margin-top: 50px;
         text-align: center;
         font-size: 11px;
         color: #94a3b8;
         padding: 20px 0;
+    }
+
+    @media print {
+        @page {
+            margin: 0; 
+            size: auto;
+        }
+
+        body {
+            margin: 1.25cm; 
+        }
+
+        footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 10px;
+            background: white; 
+        }
     }
 </style>
 
