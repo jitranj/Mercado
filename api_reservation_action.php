@@ -3,13 +3,11 @@ header('Content-Type: application/json');
 session_start();
 include 'db_connect.php';
 
-// 1. SECURITY GATEKEEPER
 if (!isset($_SESSION['user_id'])) {
     echo json_encode(['success' => false, 'message' => 'Unauthorized']);
     exit;
 }
 
-// 2. ROLE CHECK (Admin/Manager Only)
 $current_role = $_SESSION['role'] ?? 'staff';
 if (!in_array($current_role, ['admin', 'manager'])) {
     echo json_encode(['success' => false, 'message' => '⛔ Access Denied: Managers/Admins only.']);
@@ -28,13 +26,11 @@ if (!$stall_id || !$renter_id) {
 $conn->begin_transaction();
 try {
     if ($action === 'approve') {
-        // Quick Approve (Logic exists but typically handled by assign_tenant)
         $conn->query("UPDATE stalls SET status = 'occupied' WHERE id = $stall_id");
         $conn->query("UPDATE renters SET is_reservation = 0, start_date = CURDATE() WHERE renter_id = $renter_id");
         $msg = "Reservation Approved! Tenant is now active.";
     } 
     elseif ($action === 'cancel') {
-        // Reject/Cancel
         $conn->query("UPDATE stalls SET status = 'available' WHERE id = $stall_id");
         $conn->query("UPDATE renters SET end_date = CURDATE() WHERE renter_id = $renter_id");
         $msg = "Reservation Cancelled. Stall is now vacant.";

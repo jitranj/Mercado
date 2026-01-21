@@ -1,24 +1,20 @@
 <?php
 header('Content-Type: application/json');
-session_start(); // 1. Start Session
+session_start(); 
 include 'db_connect.php';
 
-// --- SECURITY GATEKEEPER START ---
-// 1. Check if User is Logged In
+
 if (!isset($_SESSION['user_id'])) {
     echo json_encode(['success' => false, 'message' => 'Unauthorized']);
     exit;
 }
 
-// 2. Check Role (Only Admin & Manager can assign tenants)
 $current_role = $_SESSION['role'] ?? 'staff';
 if (!in_array($current_role, ['admin', 'manager'])) {
     echo json_encode(['success' => false, 'message' => '⛔ Access Denied: Managers/Admins only.']);
     exit;
 }
-// --- SECURITY GATEKEEPER END ---
 
-// [ORIGINAL LOGIC STARTS HERE - PRESERVED EXACTLY]
 $target_dir = "uploads/";
 if (!is_dir($target_dir)) mkdir($target_dir, 0777, true);
 
@@ -26,7 +22,7 @@ $allowed_docs = ['pdf', 'jpg', 'jpeg', 'png', 'doc', 'docx'];
 $allowed_imgs = ['jpg', 'jpeg', 'png', 'webp'];
 
 $stall_id = $_POST['stall_id'] ?? 0;
-$reservation_id = $_POST['reservation_id'] ?? 0; // NEW: Check for ID
+$reservation_id = $_POST['reservation_id'] ?? 0; 
 $name = $_POST['renter_name'] ?? '';
 $contact = $_POST['contact_number'] ?? '';
 $start_date = $_POST['start_date'] ?? date('Y-m-d');
@@ -39,7 +35,6 @@ if (!$stall_id || !$name) {
     exit;
 }
 
-// --- FILE UPLOAD LOGIC (Reusable) ---
 $contract_path = null;
 if (isset($_FILES['contract_file']) && $_FILES['contract_file']['error'] == 0) {
     $ext = strtolower(pathinfo($_FILES["contract_file"]["name"], PATHINFO_EXTENSION));
@@ -67,9 +62,7 @@ try {
     $final_renter_id = 0;
 
     if ($reservation_id > 0) {
-        // === MODE A: UPDATE EXISTING RESERVATION (APPROVE) ===
-        // We update the existing row to remove the 'reservation' flag and add the contract
-        
+      
         $sql = "UPDATE renters SET 
                 renter_name = ?, 
                 contact_number = ?, 
@@ -81,7 +74,6 @@ try {
         $types = "ssssd";
         $params = [$name, $contact, $email, $start_date, $goodwill_total];
 
-        // Only update file paths if new ones were uploaded (PRESERVED LOGIC)
         if ($contract_path) { 
             $sql .= ", contract_file = ?"; 
             $types .= "s"; 
@@ -103,11 +95,9 @@ try {
         
         $final_renter_id = $reservation_id;
 
-        // Ensure stall is marked Occupied (it might be 'reserved' currently)
         $conn->query("UPDATE stalls SET status = 'occupied' WHERE id = $stall_id");
 
     } else {
-        // === MODE B: INSERT NEW TENANT (Standard) ===
         $stmt = $conn->prepare("INSERT INTO renters (stall_id, renter_name, contact_number, email_address, start_date, contract_file, profile_image, goodwill_total) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
         $stmt->bind_param("issssssd", $stall_id, $name, $contact, $email, $start_date, $contract_path, $profile_path, $goodwill_total);
         $stmt->execute();
@@ -117,7 +107,6 @@ try {
         $conn->query("UPDATE stalls SET status = 'occupied' WHERE id = $stall_id");
     }
 
-    // --- RECORD INITIAL PAYMENT (If any) ---
     if ($initial_payment > 0) {
         $stmt3 = $conn->prepare("INSERT INTO payments (renter_id, payment_date, amount, payment_type, month_paid_for, remarks) VALUES (?, CURDATE(), ?, 'goodwill', NULL, 'Initial Deposit')");
         $stmt3->bind_param("id", $final_renter_id, $initial_payment);

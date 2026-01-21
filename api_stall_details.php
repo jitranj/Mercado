@@ -25,16 +25,13 @@ if ($result && $row = $result->fetch_assoc()) {
         'rate' => $row['monthly_rate']
     ];
     
-    // If a renter exists (Occupied OR Reserved)
     if ($row['renter_id']) {
         $rid = $row['renter_id'];
         
-        // 2. Goodwill Logic
         $gw_total = $row['goodwill_total'] ?? 0;
         $gw_paid_result = $conn->query("SELECT SUM(amount) FROM payments WHERE renter_id = $rid AND payment_type = 'goodwill'");
         $gw_paid = $gw_paid_result ? ($gw_paid_result->fetch_row()[0] ?? 0) : 0;
         
-        // 3. Due Date Logic
         $last_rent_sql = "SELECT MAX(month_paid_for) FROM payments WHERE renter_id = $rid AND payment_type = 'rent'";
         $last_date_res = $conn->query($last_rent_sql);
         $last_date = $last_date_res ? $last_date_res->fetch_row()[0] : null;
@@ -42,7 +39,6 @@ if ($result && $row = $result->fetch_assoc()) {
         if ($last_date) {
             $next_due = date('Y-m', strtotime($last_date . ' +1 month'));
         } else {
-            // Check if start_date is valid, else use today
             $start = $row['start_date'] ? $row['start_date'] : date('Y-m-d');
             $next_due = date('Y-m', strtotime($start));
         }
@@ -56,7 +52,7 @@ if ($result && $row = $result->fetch_assoc()) {
             'contract' => $row['contract_file'],
             'image' => $row['profile_image'],
             'next_due' => $next_due,
-            'is_reservation' => $row['is_reservation'], // <--- CRITICAL: Flags the JS to show Approve buttons
+            'is_reservation' => $row['is_reservation'], 
             'goodwill' => [
                 'total' => (float)$gw_total,
                 'paid' => (float)$gw_paid,
@@ -64,7 +60,6 @@ if ($result && $row = $result->fetch_assoc()) {
             ]
         ];
 
-        // 4. History
         $sql_pay = "SELECT amount, month_paid_for, payment_date, payment_type, or_no 
                     FROM payments 
                     WHERE renter_id = $rid 

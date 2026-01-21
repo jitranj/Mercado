@@ -1,7 +1,5 @@
 <?php
-// admin_backup.php
 include 'db_connect.php';
-// Check role if needed: if($_SESSION['role'] !== 'admin') die("Access Denied");
 
 $tables = [];
 $result = $conn->query("SHOW TABLES");

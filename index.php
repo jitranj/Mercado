@@ -9,10 +9,8 @@ if (!isset($_SESSION['user_id'])) {
 include 'db_connect.php';
 include 'helpers.php';
 
-// Pass PHP Role to JS securely
 $current_role = $_SESSION['role'] ?? 'staff_monitor';
 
-// 1. DATA ENGINE (FIXED LOGIC FOR STRICT SQL MODE)
 $sql = "
     SELECT 
         s.id, s.stall_number, s.pasilyo, s.floor, s.status, 

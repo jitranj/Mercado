@@ -15,19 +15,15 @@ if (!$stall_id || !$name) {
 
 $conn->begin_transaction();
 try {
-    // 1. Insert Renter with is_reservation = 1
-    // We store the reservation fee as "Goodwill" initially so it tracks as paid money
     $stmt = $conn->prepare("INSERT INTO renters (stall_id, renter_name, contact_number, start_date, is_reservation, goodwill_total) VALUES (?, ?, ?, ?, 1, ?)");
     $stmt->bind_param("isssd", $stall_id, $name, $contact, $date, $fee);
     $stmt->execute();
     $renter_id = $conn->insert_id;
 
-    // 2. Update Stall Status
     $stmt2 = $conn->prepare("UPDATE stalls SET status = 'reserved' WHERE id = ?");
     $stmt2->bind_param("i", $stall_id);
     $stmt2->execute();
 
-    // 3. Record Reservation Fee (if any)
     if ($fee > 0) {
         $stmt3 = $conn->prepare("INSERT INTO payments (renter_id, payment_date, amount, payment_type, remarks) VALUES (?, ?, ?, 'goodwill', 'Reservation Fee')");
         $stmt3->bind_param("isd", $renter_id, $date, $fee);

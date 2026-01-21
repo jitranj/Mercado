@@ -1,22 +1,17 @@
 <?php
-// 1. SAFETY: Turn on Output Buffering immediately
-// This traps any accidental whitespace or PHP warnings
 ob_start();
 
 session_start();
 include 'db_connect.php';
 
-// Define header but don't send output yet
 header('Content-Type: application/json');
 
-// Helper to send clean JSON
 function sendJson($success, $message = '') {
-    ob_clean(); // Delete any garbage (warnings/spaces) in the buffer
+    ob_clean(); 
     echo json_encode(['success' => $success, 'message' => $message]);
     exit;
 }
 
-// 2. Auth Check
 if (!isset($_SESSION['user_id'])) {
     sendJson(false, 'Unauthorized');
 }
@@ -33,7 +28,6 @@ if (empty($password)) {
     sendJson(false, 'Password Required');
 }
 
-// 3. Verify Password
 $user_id = $_SESSION['user_id'];
 $stmt_u = $conn->prepare("SELECT password_hash FROM users WHERE user_id = ?");
 $stmt_u->bind_param("i", $user_id);
@@ -46,15 +40,12 @@ if (!password_verify($password, $hash)) {
     sendJson(false, ' Incorrect Password. Action Denied.');
 }
 
-// 4. Perform Termination
 $conn->begin_transaction();
 try {
-    // Archive Renter
     $stmt1 = $conn->prepare("UPDATE renters SET end_date = CURDATE() WHERE renter_id = ?");
     $stmt1->bind_param("i", $renter_id);
     $stmt1->execute();
 
-    // Free Stall
     $stmt2 = $conn->prepare("UPDATE stalls SET status = 'available' WHERE id = ?");
     $stmt2->bind_param("i", $stall_id);
     $stmt2->execute();

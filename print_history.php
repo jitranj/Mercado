@@ -1,15 +1,13 @@
 <?php
 session_start();
 include 'db_connect.php';
-include 'helpers.php'; // For xss() if needed
+include 'helpers.php'; 
 
-// 1. Security Check
 if (!isset($_SESSION['user_id'])) { die("Access Denied"); }
 
 $renter_id = isset($_GET['id']) ? intval($_GET['id']) : 0;
 if ($renter_id === 0) die("Invalid Renter ID");
 
-// 2. Fetch Renter & Stall Info
 $sql = "SELECT r.renter_name, r.contact_number, r.start_date, s.stall_number, s.pasilyo, s.floor
         FROM renters r
         JOIN stalls s ON r.stall_id = s.id
@@ -17,7 +15,6 @@ $sql = "SELECT r.renter_name, r.contact_number, r.start_date, s.stall_number, s.
 $renter = $conn->query($sql)->fetch_assoc();
 if (!$renter) die("Renter not found");
 
-// 3. Fetch Payments
 $sql_pay = "SELECT * FROM payments WHERE renter_id = $renter_id ORDER BY payment_date DESC, payment_id DESC";
 $payments = $conn->query($sql_pay);
 ?>
@@ -56,7 +53,6 @@ $payments = $conn->query($sql_pay);
     </style>
 
     <style>
-    /* ... your existing styles ... */
 
     @media print {
         footer {
@@ -71,7 +67,6 @@ $payments = $conn->query($sql_pay);
             border-top: 1px solid #e2e8f0;
         }
     }
-    /* Hide footer on screen if you want, or keep it visible */
     footer {
         margin-top: 50px;
         text-align: center;
@@ -81,25 +76,22 @@ $payments = $conn->query($sql_pay);
     }
 
     @media print {
-        /* 1. Hides the Browser's ugly Header/Footer */
         @page {
             margin: 0; 
             size: auto;
         }
 
-        /* 2. Adds clean whitespace around your paper so text isn't cut off */
         body {
             margin: 1.25cm; 
         }
 
-        /* 3. Ensures your custom footer stays at the bottom */
         footer {
             position: fixed;
             bottom: 0;
             left: 0;
             right: 0;
             padding: 10px;
-            background: white; /* Hides content behind it */
+            background: white; 
         }
     }
     

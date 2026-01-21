@@ -4,8 +4,6 @@ include 'db_connect.php';
 $type = $_GET['type'] ?? 'dashboard';
 $current_date = date('F d, Y');
 
-// --- DATA FETCHING ---
-
 function getStats($conn) {
     $rev = $conn->query("SELECT COALESCE(SUM(amount),0) FROM payments WHERE MONTH(payment_date) = MONTH(CURRENT_DATE())")->fetch_row()[0];
     $occ = $conn->query("SELECT COUNT(*) FROM stalls WHERE status='occupied'")->fetch_row()[0];
@@ -14,9 +12,7 @@ function getStats($conn) {
     return ['revenue'=>$rev, 'occupied'=>$occ, 'total'=>$tot, 'rate'=>$rate];
 }
 
-// --- UPDATED TENANT FETCHING LOGIC ---
 function getTenants($conn, $filterType = 'all') {
-    // Base Query
     $sql = "SELECT r.renter_name, CONCAT(s.pasilyo, ' #', s.stall_number) as stall, r.contact_number, r.start_date,
             TIMESTAMPDIFF(MONTH, MAX(COALESCE(p.month_paid_for, r.start_date)), CURRENT_DATE()) as months_due
             FROM renters r
@@ -25,17 +21,13 @@ function getTenants($conn, $filterType = 'all') {
             WHERE r.end_date IS NULL
             GROUP BY r.renter_id ";
     
-    // --- FILTER LOGIC ---
     if ($filterType === 'red_list') {
-        // STRICT: Only show 3 months or more (Matches Dashboard "Red List")
         $sql .= "HAVING months_due >= 3 ORDER BY months_due DESC";
     } 
     elseif ($filterType === 'dashboard') {
-        // Dashboard summary (Top 10 worst offenders)
         $sql .= "HAVING months_due >= 3 ORDER BY months_due DESC LIMIT 10";
     }
     else {
-        // Masterlist (Show everyone, sorted by stall)
         $sql .= "ORDER BY s.pasilyo, s.stall_number";
     }
     
@@ -49,7 +41,6 @@ $title = "REPORT";
 $data = [];
 $stats = [];
 
-// --- REPORT TYPE SELECTOR ---
 if ($type === 'dashboard') {
     $title = "EXECUTIVE DASHBOARD SUMMARY";
     $stats = getStats($conn);
@@ -74,26 +65,22 @@ elseif ($type === 'red_list') {
         body { font-family: "Times New Roman", Times, serif; padding: 20px; background: #525659; }
         .page { background: white; width: 8.5in; min-height: 11in; margin: 0 auto; padding: 0.5in; box-shadow: 0 0 10px rgba(0,0,0,0.5); display: flex; flex-direction: column; }
         
-        /* HEADER STYLE (Same as SOA) */
         .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid black; padding-bottom: 10px; }
         .header .sub { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; }
         .header h1 { font-size: 20px; font-weight: bold; margin: 5px 0 0; text-transform: uppercase; }
         
         .report-info { display: flex; justify-content: space-between; margin-bottom: 20px; font-weight: bold; font-size: 14px; border-bottom: 1px solid #ddd; padding-bottom: 10px; }
 
-        /* DASHBOARD CARDS */
         .kpi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 30px; }
         .kpi-card { border: 1px solid #000; padding: 15px; text-align: center; }
         .kpi-label { font-size: 12px; text-transform: uppercase; font-weight: bold; color: #555; }
         .kpi-value { font-size: 24px; font-weight: bold; margin-top: 5px; }
 
-        /* TABLES */
         table { width: 100%; border-collapse: collapse; font-size: 12px; }
         th, td { border: 1px solid #000; padding: 8px; text-align: left; }
         th { background: #f0f0f0; text-transform: uppercase; }
         .danger { color: red; font-weight: bold; }
         
-        /* PRINT UTILS */
         .print-btn { position: fixed; top: 20px; right: 20px; padding: 12px 24px; background: #3b82f6; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; z-index: 100; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
         .print-btn:hover { background: #2563eb; }
 
@@ -105,7 +92,6 @@ elseif ($type === 'red_list') {
     </style>
 
     <style>
-    /* ... your existing styles ... */
 
     @media print {
         footer {
@@ -120,7 +106,6 @@ elseif ($type === 'red_list') {
             border-top: 1px solid #e2e8f0;
         }
     }
-    /* Hide footer on screen if you want, or keep it visible */
     footer {
         margin-top: 50px;
         text-align: center;
@@ -130,25 +115,22 @@ elseif ($type === 'red_list') {
     }
 
     @media print {
-        /* 1. Hides the Browser's ugly Header/Footer */
         @page {
             margin: 0; 
             size: auto;
         }
 
-        /* 2. Adds clean whitespace around your paper so text isn't cut off */
         body {
             margin: 1.25cm; 
         }
 
-        /* 3. Ensures your custom footer stays at the bottom */
         footer {
             position: fixed;
             bottom: 0;
             left: 0;
             right: 0;
             padding: 10px;
-            background: white; /* Hides content behind it */
+            background: white; 
         }
     }
 </style>

@@ -1,9 +1,7 @@
 <?php
-// api_admin.php - ENHANCED SECURITY VERSION
 session_start();
 include 'db_connect.php';
 
-// --- 1. SECURITY GATEKEEPER ---
 if (!isset($_SESSION['user_id'])) {
     http_response_code(403);
     echo json_encode(['success' => false, 'message' => 'Session expired or invalid']);
@@ -16,19 +14,15 @@ $current_username = $_SESSION['username'] ?? 'Unknown';
 
 $action = $_POST['action'] ?? $_GET['action'] ?? '';
 
-// --- 2. ACTIVITY LOGGING FUNCTION ---
 function logActivity($conn, $userId, $actionType, $desc) {
     $ip = $_SERVER['REMOTE_ADDR'];
-    // We use the new table structure: user_id, action_type, description, ip_address
     $stmt = $conn->prepare("INSERT INTO activity_logs (user_id, action_type, description, ip_address) VALUES (?, ?, ?, ?)");
     $stmt->bind_param("isss", $userId, $actionType, $desc, $ip);
     $stmt->execute();
     $stmt->close();
 }
 
-// ==========================================================
-// ACTION 1: CHANGE PASSWORD (Available to ALL users)
-// ==========================================================
+
 if ($action === 'change_password') {
     $current_pass = $_POST['current_password'] ?? '';
     $new_pass = $_POST['new_password'] ?? '';
@@ -38,7 +32,6 @@ if ($action === 'change_password') {
         exit;
     }
 
-    // Security: Verify old password first
     $stmt = $conn->prepare("SELECT password_hash FROM users WHERE user_id = ?");
     $stmt->bind_param("i", $current_user_id);
     $stmt->execute();
@@ -56,7 +49,6 @@ if ($action === 'change_password') {
         exit;
     }
 
-    // Enforce Password Strength (New Requirement)
     if (strlen($new_pass) < 8) {
         echo json_encode(['success' => false, 'message' => 'New password must be at least 8 characters']);
         exit;
@@ -75,9 +67,6 @@ if ($action === 'change_password') {
     exit;
 }
 
-// ==========================================================
-// ACTION 2: ADD NEW USER (Strictly ADMIN Only + Secured)
-// ==========================================================
 if ($action === 'add_user') {
     if ($current_role !== 'admin') {
         logActivity($conn, $current_user_id, 'UNAUTH_ACCESS', "Tried to add user but is not Admin");
@@ -88,9 +77,8 @@ if ($action === 'add_user') {
     $username = trim($_POST['username'] ?? '');
     $password = $_POST['password'] ?? '';
     $new_role = $_POST['role'] ?? 'staff_monitor';
-    $admin_pass = $_POST['admin_password'] ?? ''; // <--- NEW: Admin Password Field
+    $admin_pass = $_POST['admin_password'] ?? ''; 
 
-    // 1. Validate Input
     if (!$username || !$password || !$admin_pass) {
         echo json_encode(['success' => false, 'message' => 'Missing required fields (Username, Password, or Admin Auth)']);
         exit;
@@ -101,7 +89,6 @@ if ($action === 'add_user') {
         exit;
     }
 
-    // 2. Verify ADMIN Password (The Gatekeeper)
     $stmt = $conn->prepare("SELECT password_hash FROM users WHERE user_id = ?");
     $stmt->bind_param("i", $current_user_id);
     $stmt->execute();
@@ -115,7 +102,6 @@ if ($action === 'add_user') {
         exit;
     }
 
-    // 3. Check if username exists
     $check = $conn->prepare("SELECT user_id FROM users WHERE username = ?");
     $check->bind_param("s", $username);
     $check->execute();
@@ -126,7 +112,6 @@ if ($action === 'add_user') {
     }
     $check->close();
 
-    // 4. Create User
     $hash = password_hash($password, PASSWORD_DEFAULT);
     $stmt = $conn->prepare("INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)");
     $stmt->bind_param("sss", $username, $hash, $new_role);
@@ -140,13 +125,8 @@ if ($action === 'add_user') {
     exit;
 }
 
-// ==========================================================
-// ACTION 3: EXPORTS (Role Restricted)
-// ==========================================================
 
-// EXPORT RED LIST (Admin or Manager Only)
 if ($action === 'export_red_list') {
-    // STAFF_ENCODER cannot see this
     if (!in_array($current_role, ['admin', 'manager', 'staff_billing'])) {
         die("Unauthorized Access");
     }
@@ -160,7 +140,6 @@ if ($action === 'export_red_list') {
     $output = fopen('php://output', 'w');
     fputcsv($output, ['Tenant Name', 'Stall', 'Contact', 'Months Unpaid']);
 
-    // Only get critical ones (1+ months due)
     $sql = "SELECT r.renter_name, CONCAT(s.pasilyo, ' #', s.stall_number) as stall, r.contact_number,
             TIMESTAMPDIFF(MONTH, MAX(p.month_paid_for), CURRENT_DATE()) as months_due
             FROM renters r
@@ -179,7 +158,6 @@ if ($action === 'export_red_list') {
     exit;
 }
 
-// EXPORT TENANTS (Admin, Manager, Billing)
 if ($action === 'export_tenants_csv') {
     if (!in_array($current_role, ['admin', 'manager', 'staff_billing'])) {
         die("Unauthorized Access");
@@ -194,7 +172,6 @@ if ($action === 'export_tenants_csv') {
     $output = fopen('php://output', 'w');
     fputcsv($output, ['ID', 'Name', 'Stall', 'Contact', 'Email', 'Start Date', 'Is Reservation']);
 
-    // Updated to include new columns (email, is_reservation)
     $sql = "SELECT r.renter_id, r.renter_name, CONCAT(s.pasilyo, ' #', s.stall_number) as stall, 
             r.contact_number, r.email_address, r.start_date, 
             IF(r.is_reservation=1, 'YES', 'NO') as reserved
@@ -213,16 +190,14 @@ if ($action === 'export_payments_csv') {
 
     $output = fopen('php://output', 'w');
     
-    // CSV Headers
     fputcsv($output, ['Payment ID', 'Renter', 'Stall', 'Amount', 'Date Paid', 'Month For', 'Type', 'OR No']);
 
-    // THE FIX: Changed 'p.date_paid' to 'p.payment_date'
     $sql = "SELECT 
                 p.payment_id, 
                 r.renter_name, 
                 CONCAT(s.floor, '-', s.pasilyo, ' ', s.stall_number) as stall_loc, 
                 p.amount, 
-                p.payment_date,  /* <--- THIS WAS THE ERROR */
+                p.payment_date,  
                 p.month_paid_for,
                 p.payment_type,
                 p.or_no
@@ -243,9 +218,7 @@ if ($action === 'export_payments_csv') {
     exit;
 }
 
-// ... inside api_admin.php ...
 
-// FULL BACKUP (Strictly ADMIN Only)
 if ($action === 'export_backup') {
     if ($current_role !== 'admin') {
         logActivity($conn, $current_user_id, 'SECURITY_ALERT', "Unauthorized Backup Attempt");
@@ -260,30 +233,24 @@ if ($action === 'export_backup') {
     header('Pragma: no-cache');
     header('Expires: 0');
 
-    // 1. Header Information
     echo "-- MALL MONITOR SQL BACKUP\n";
     echo "-- Generated: " . date('Y-m-d H:i:s') . "\n";
     echo "-- User: $current_username\n\n";
     echo "SET FOREIGN_KEY_CHECKS=0;\nSET SQL_MODE = 'NO_AUTO_VALUE_ON_ZERO';\n\n";
 
-    // 2. Get All Tables
     $tables = [];
     $result = $conn->query("SHOW TABLES");
     while ($row = $result->fetch_row()) {
         $tables[] = $row[0];
     }
 
-    // 3. Loop Through Tables
     foreach ($tables as $table) {
-        // Drop Existing
         echo "-- Table structure for table `$table`\n";
         echo "DROP TABLE IF EXISTS `$table`;\n";
 
-        // Create Structure
         $row2 = $conn->query("SHOW CREATE TABLE `$table`")->fetch_row();
         echo $row2[1] . ";\n\n";
 
-        // Insert Data
         echo "-- Dumping data for table `$table`\n";
         $data = $conn->query("SELECT * FROM `$table`");
         while ($row = $data->fetch_assoc()) {
@@ -292,7 +259,6 @@ if ($action === 'export_backup') {
             foreach ($row as $value) {
                 if (!$first) echo ", ";
                 $value = $conn->real_escape_string($value);
-                // Handle NULL vs Empty String
                 if ($value === null) echo "NULL";
                 else echo "'" . $value . "'";
                 $first = false;
@@ -305,18 +271,13 @@ if ($action === 'export_backup') {
     echo "SET FOREIGN_KEY_CHECKS=1;\n";
     exit;
 }
-// ... existing code ...
 
-// ==========================================================
-// ACTION 4: SEND PAYMENT REMINDERS (Simulation/Log)
-// ==========================================================
 if ($action === 'send_reminders') {
     if (!in_array($current_role, ['admin', 'manager', 'staff_billing'])) {
         echo json_encode(['success' => false, 'message' => 'Unauthorized']);
         exit;
     }
 
-    // 1. Find Delinquents (3+ months due)
     $sql = "SELECT r.renter_id, r.renter_name, r.email_address 
             FROM renters r
             LEFT JOIN payments p ON r.renter_id = p.renter_id
@@ -328,8 +289,7 @@ if ($action === 'send_reminders') {
 
     while($row = $result->fetch_assoc()) {
         $count++;
-        // NOTE: If you had a mail server, you would use mail() here.
-        // For now, we just Log it as a "processed" action.
+
         logActivity($conn, $current_user_id, 'SENT_REMINDER', "Sent payment reminder to " . $row['renter_name']);
     }
 
@@ -337,9 +297,6 @@ if ($action === 'send_reminders') {
     exit;
 }
 
-// ==========================================================
-// ACTION 5: EXPORT EXECUTIVE DASHBOARD (Report)
-// ==========================================================
 if ($action === 'export_dashboard') {
     $filename = "executive_report_" . date('Y-m-d') . ".csv";
     header('Content-Type: text/csv');
@@ -347,10 +304,8 @@ if ($action === 'export_dashboard') {
 
     $output = fopen('php://output', 'w');
 
-    // Section 1: Summary Stats
     fputcsv($output, ['--- EXECUTIVE SUMMARY ---']);
     
-    // Calculate Live Stats
     $rev = $conn->query("SELECT SUM(amount) FROM payments WHERE MONTH(payment_date) = MONTH(CURRENT_DATE())")->fetch_row()[0] ?? 0;
     $occ = $conn->query("SELECT COUNT(*) FROM stalls WHERE status='occupied'")->fetch_row()[0] ?? 0;
     $tot = $conn->query("SELECT COUNT(*) FROM stalls")->fetch_row()[0] ?? 0;
@@ -360,9 +315,8 @@ if ($action === 'export_dashboard') {
     fputcsv($output, ['Current Month Revenue', $rev]);
     fputcsv($output, ['Occupancy Rate', $rate]);
     fputcsv($output, ['Total Occupied Units', $occ]);
-    fputcsv($output, []); // Spacer
+    fputcsv($output, []); 
 
-    // Section 2: Delinquent List
     fputcsv($output, ['--- DELINQUENT TENANTS LIST ---']);
     fputcsv($output, ['Tenant Name', 'Stall', 'Contact', 'Months Due']);
 
@@ -385,9 +339,7 @@ if ($action === 'export_dashboard') {
     exit;
 }
 
-// ==========================================================
-// ACTION 6: GET ALL USERS (For Admin View)
-// ==========================================================
+
 if ($action === 'get_users') {
     if ($current_role !== 'admin') {
         echo json_encode(['success' => false, 'message' => 'Unauthorized']);
@@ -404,11 +356,8 @@ if ($action === 'get_users') {
     exit;
 }
 
-// ==========================================================
-// ACTION 7: ADMIN UPDATE USER (Edit Other Staff)
-// ==========================================================
+
 if ($action === 'admin_update_user') {
-    // 1. Check Permissions
     if ($current_role !== 'admin') {
         echo json_encode(['success' => false, 'message' => 'Access Denied']);
         exit;
@@ -418,16 +367,15 @@ if ($action === 'admin_update_user') {
     $new_user = trim($_POST['username'] ?? '');
     $new_role = $_POST['role'] ?? '';
     $new_pass = $_POST['new_password'] ?? '';
-    $admin_pass = $_POST['admin_password'] ?? ''; // Security Check
+    $admin_pass = $_POST['admin_password'] ?? ''; 
 
     if (!$target_id || !$new_user || !$admin_pass) {
         echo json_encode(['success' => false, 'message' => 'Missing required fields']);
         exit;
     }
 
-    // 2. Verify ADMIN Password (The Gatekeeper)
     $stmt = $conn->prepare("SELECT password_hash FROM users WHERE user_id = ?");
-    $stmt->bind_param("i", $current_user_id); // Check session user (Admin)
+    $stmt->bind_param("i", $current_user_id); 
     $stmt->execute();
     $stmt->bind_result($admin_hash);
     $stmt->fetch();
@@ -439,7 +387,6 @@ if ($action === 'admin_update_user') {
         exit;
     }
 
-    // 3. Check Username Uniqueness (if changed)
     $chk = $conn->prepare("SELECT user_id FROM users WHERE username = ? AND user_id != ?");
     $chk->bind_param("si", $new_user, $target_id);
     $chk->execute();
@@ -448,7 +395,6 @@ if ($action === 'admin_update_user') {
         exit;
     }
 
-    // 4. Prepare Update
     $updates = ["username = ?", "role = ?"];
     $types = "ss";
     $params = [$new_user, $new_role];
@@ -479,11 +425,8 @@ if ($action === 'admin_update_user') {
     exit;
 }
 
-// ==========================================================
-// ACTION 8: DELETE USER (Strictly Admin + Password)
-// ==========================================================
+
 if ($action === 'delete_user') {
-    // 1. Permission Check
     if ($current_role !== 'admin') {
         echo json_encode(['success' => false, 'message' => 'Access Denied']);
         exit;
@@ -497,13 +440,11 @@ if ($action === 'delete_user') {
         exit;
     }
 
-    // 2. Prevent Self-Deletion
     if ($target_id == $current_user_id) {
         echo json_encode(['success' => false, 'message' => '❌ You cannot delete your own account while logged in.']);
         exit;
     }
 
-    // 3. Verify Admin Password
     $stmt = $conn->prepare("SELECT password_hash FROM users WHERE user_id = ?");
     $stmt->bind_param("i", $current_user_id);
     $stmt->execute();
@@ -517,7 +458,6 @@ if ($action === 'delete_user') {
         exit;
     }
 
-    // 4. Perform Delete
     $del = $conn->prepare("DELETE FROM users WHERE user_id = ?");
     $del->bind_param("i", $target_id);
     

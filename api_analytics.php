@@ -4,7 +4,6 @@ include 'db_connect.php';
 
 $response = [];
 
-// 1. OCCUPANCY RATE
 $total = $conn->query("SELECT COUNT(*) as c FROM stalls")->fetch_assoc()['c'];
 $occupied = $conn->query("SELECT COUNT(*) as c FROM stalls WHERE status = 'occupied'")->fetch_assoc()['c'];
 
@@ -15,13 +14,11 @@ $response['occupancy'] = [
     'vacant' => $total - $occupied
 ];
 
-// 2. REVENUE (Current Month)
 $month_sql = "SELECT COALESCE(SUM(amount), 0) as total FROM payments 
               WHERE MONTH(payment_date) = MONTH(CURRENT_DATE()) 
               AND YEAR(payment_date) = YEAR(CURRENT_DATE())";
 $response['revenue_month'] = $conn->query($month_sql)->fetch_assoc()['total'];
 
-// 3. REVENUE TREND (Last 6 Months)
 $trend = [];
 for ($i = 5; $i >= 0; $i--) {
     $timestamp = strtotime("first day of -$i months");
@@ -37,7 +34,6 @@ for ($i = 5; $i >= 0; $i--) {
 }
 $response['revenue_trend'] = $trend;
 
-// 4. RED LIST (Fix: Handle tenants with ZERO payments)
 $delinquent_sql = "
     SELECT r.renter_id, r.renter_name, s.stall_number, s.pasilyo,
            CASE 

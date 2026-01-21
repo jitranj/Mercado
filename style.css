@@ -1,6 +1,3 @@
-/* style.css */
-
-/* FIXED DASHBOARD THEME */
 :root {
     --bg-body: #0f172a; 
     --bg-panel: #1e293b; 
@@ -8,7 +5,6 @@
     --txt-sec: #94a3b8; 
     --accent: #3b82f6; 
     
-    /* STALL COLORS */
     --st-vacant: #020617; 
     --st-vacant-bd: #334155; 
     --st-vacant-txt: #cbd5e1; 
@@ -21,17 +17,14 @@
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 body { margin: 0; padding: 0; height: 100vh; background: var(--bg-body); font-family: 'Inter', sans-serif; overflow: hidden; color: var(--txt-primary); }
 
-/* ANIMATIONS */
 @keyframes slideIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes modalFadeIn { from { opacity: 0; transform: scale(0.95) translateY(-20px); } to { opacity: 1; transform: scale(1) translateY(0); } }
 
-/* MODAL ENHANCEMENTS */
 #settingsModal .s-tab:hover { background: #f1f5f9 !important; color: #1e293b !important; }
 #settingsModal button:hover { transform: translateY(-1px); box-shadow: 0 4px 8px rgba(0,0,0,0.15) !important; }
 #settingsModal input:focus, #settingsModal select:focus { border-color: #3b82f6; outline: none; box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
 #settingsModal span:hover { color: #ef4444; }
 
-/* HEADER FIXES */
 .top-bar { 
     height: 60px; 
     background: rgba(15, 23, 42, 0.95);
@@ -75,7 +68,6 @@ body { margin: 0; padding: 0; height: 100vh; background: var(--bg-body); font-fa
 }
 .toggle-btn.active { background: #1e293b; color: white; border: 1px solid #334155; }
 
-/* DASHBOARD LAYOUT */
 .dashboard-container { height: calc(100vh - 60px); padding: 12px; display: flex; gap: 12px; overflow: hidden; }
 .floor-view { display: none; width: 100%; height: 100%; gap: 12px; animation: slideIn 0.3s ease-out; }
 .floor-view.active { display: flex; }
@@ -118,9 +110,6 @@ body { margin: 0; padding: 0; height: 100vh; background: var(--bg-body); font-fa
 }
 
 .col-left, .col-right {
-    /* Fixed slim width. 
-       Adjust '220px' if you want it even slimmer, 
-       but keep enough room for the "Pasilyo" text labels. */
     flex: 0 0 100px; 
     display: flex;
     flex-direction: column;
@@ -129,15 +118,14 @@ body { margin: 0; padding: 0; height: 100vh; background: var(--bg-body); font-fa
 }
 
 .col-center {
-    flex: 1; /* Grows to fill the rest of the screen */
+    flex: 1; 
     display: flex;
     flex-direction: column;
 }
 
-/* Ensure panels take full height in this layout */
 .panel {
     height: 100%; 
-    overflow-y: auto; /* Adds scrollbar if list is too long */
+    overflow-y: auto; 
 }
 
 .zone-label {
@@ -156,18 +144,18 @@ body { margin: 0; padding: 0; height: 100vh; background: var(--bg-body); font-fa
 .col-center .grid { padding-right: 15px; }
 
 .stall {
-    height: 45px;           /* Good height for a list view */
-    width: 80px;            /* FILL the slim container (Removed fixed 80px) */
+    height: 45px;           
+    width: 80px;            
     background: var(--st-vacant);
     border: 1px solid var(--st-vacant-bd);
     color: var(--st-vacant-txt);
-    border-radius: 6px;     /* Slightly sharper corners for a clean look */
+    border-radius: 6px;    
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
     transition: all 0.2s;
-    font-size: 14px;        /* Readable size */
+    font-size: 14px;        
     font-weight: 700;
     box-shadow: inset 0 1px 2px rgba(0,0,0,0.3);
     position: relative;
@@ -202,7 +190,6 @@ body { margin: 0; padding: 0; height: 100vh; background: var(--bg-body); font-fa
 .stall.occupied.pay-crit { background: linear-gradient(135deg, #ef4444, #dc2626); }
 body:not(.mode-payment) .stall.occupied { background: linear-gradient(135deg, #3b82f6, #2563eb); }
 
-/* MOBILE RESPONSIVENESS */
 @media (max-width: 1024px) {
     body { height: auto; overflow-y: auto; padding-bottom: 80px; }
     .top-bar { position: sticky; top: 0; }
@@ -219,80 +206,70 @@ body:not(.mode-payment) .stall.occupied { background: linear-gradient(135deg, #3
 }
 .mobile-nav { display: none; }
 
-/* MODAL FIXES */
 .modal-fullscreen { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:var(--bg-body); z-index:5000; overflow-y:auto; padding:30px; }
 .stats-grid { display:grid; grid-template-columns: repeat(4, 1fr); gap:20px; margin-bottom:30px; }
 .stat-card { background:var(--bg-panel); padding:20px; border-radius:12px; border:1px solid rgba(255,255,255,0.05); }
 .stat-val { font-size:24px; font-weight:800; color:white; margin:5px 0 0; }
 .stat-label { font-size:12px; font-weight:600; color:var(--txt-sec); text-transform:uppercase; }
 
-/* --- SUPER-SIZED MODAL STYLES --- */
-
-/* 1. Main Modal Box (Overrides inline HTML styles) */
 #stallModal > div {
-    width: 95% !important;              /* Fill most of the screen width */
-    max-width: 1200px !important;       /* Massive upgrade from 700px */
-    height: 85vh !important;            /* Fixed tall height (85% of screen) */
-    max-height: 1000px !important;      /* Prevent it from getting too tall */
-    margin: 5vh auto !important;        /* Center vertically */
-    display: flex !important;           /* Use Flexbox for layout */
-    flex-direction: column !important;  /* Stack Header on top of Body */
-    border-radius: 16px !important;     /* Smooth corners */
-    color: #0f172a !important;          /* Ensure text is dark/readable */
+    width: 95% !important;              
+    max-width: 1200px !important;       
+    height: 85vh !important;            
+    max-height: 1000px !important;      
+    margin: 5vh auto !important;        
+    display: flex !important;           
+    flex-direction: column !important;  
+    border-radius: 16px !important;     
+    color: #0f172a !important;          
 }
 
-/* 2. Modal Header */
 #stallModal .modal-header {
-    padding: 20px 30px !important;      /* Bigger header padding */
-    flex-shrink: 0 !important;          /* Prevent header from shrinking */
+    padding: 20px 30px !important;      
+    flex-shrink: 0 !important;          
     display: flex;
     justify-content: space-between;
     align-items: center;
     border-bottom: 1px solid #e2e8f0;
 }
 #stallModal h2 {
-    font-size: 24px !important;         /* Larger Title */
+    font-size: 24px !important;         
     font-weight: 800 !important;
     margin: 0;
 }
 
-/* 3. The Split View Container (Body) */
 #stallModal .modal-body {
     display: flex !important;
-    flex: 1 !important;                 /* Take up all remaining height */
-    overflow: hidden !important;        /* Prevent double scrollbars */
-    height: auto !important;            /* Reset inline height */
+    flex: 1 !important;                 
+    overflow: hidden !important;        
+    height: auto !important;            
 }
 
-/* 4. Left Panel (Forms & Actions) */
 #stallModal .modal-left {
-    flex: 1.5 !important;               /* Give forms 60% of the width */
-    padding: 35px !important;           /* Luxurious padding */
-    overflow-y: auto !important;        /* Internal scroll for long forms */
+    flex: 1.5 !important;               
+    padding: 35px !important;           
+    overflow-y: auto !important;        
     border-right: 1px solid #e2e8f0 !important;
 }
 
-/* 5. Right Panel (History Table) */
 #stallModal .modal-right {
-    flex: 1 !important;                 /* Give history 40% of the width */
+    flex: 1 !important;                 
     padding: 35px !important;
     background-color: #f8fafc !important;
     overflow-y: auto !important;
 }
 
-/* --- BIGGER INPUTS & BUTTONS --- */
 #stallModal input, 
 #stallModal select,
 #stallModal button {
     width: 100% !important;
-    padding: 14px 16px !important;      /* Tall click areas */
-    font-size: 15px !important;         /* Readable text size */
-    border-radius: 8px !important;      /* Modern rounding */
-    margin-bottom: 12px !important;     /* Spacing between elements */
+    padding: 14px 16px !important;      
+    font-size: 15px !important;         
+    border-radius: 8px !important;      
+    margin-bottom: 12px !important;     
     color: #0f172a !important;
 }
 
-/* Style the Labels */
 #stallModal label {
     font-size: 13px !important;
     font-weight: 700 !important;
@@ -303,14 +280,12 @@ body:not(.mode-payment) .stall.occupied { background: linear-gradient(135deg, #3
     letter-spacing: 0.5px !important;
 }
 
-/* Fix Table Styles in Right Panel */
 #historyList td, #historyList th {
-    padding: 12px !important;           /* More space in table cells */
+    padding: 12px !important;           
     font-size: 14px !important;
     color: #334155 !important;
 }
 
-/* Settings Modal Text Color Fix & Dropdowns */
 #settingsModal > div { color: #0f172a !important; }
 option { color: #0f172a !important; background: white !important; }
 #searchResults, #searchResults b, #searchResults div { color: #0f172a !important; }
@@ -335,31 +310,28 @@ option { color: #0f172a !important; background: white !important; }
 }
 
 #floor-2 .col-center .panel-body {
-    padding: 5px !important;    /* Reduce outer padding */
-    gap: 4px !important;        /* Reduce gap between rows */
+    padding: 5px !important;    
+    gap: 4px !important;        
 }
 
 #floor-2 .col-center .grid {
-    gap: 3px !important;        /* Reduce gap between stall boxes */
+    gap: 3px !important;        
 }
 
 #floor-2 .col-center .zone-label {
-    margin: 2px 0 !important;   /* Remove space around text labels */
+    margin: 2px 0 !important;   
     font-size: 15px;
 }
 
-/* --- FLOOR 2: SYMMETRICAL WINGS & COMPACT CENTER --- */
 
-/* 1. LOCK WINGS TO EXACT SAME WIDTH (220px) */
 #floor-2 .col-left, 
 #floor-2 .col-right {
-    flex: 0 0 200px !important; /* Fixed width for both wings */
-    min-width: 200px !important; /* Prevent shrinking */
-    max-width: 200px !important; /* Prevent growing */
-    padding: 0 4px !important;   /* Equal padding */
+    flex: 0 0 200px !important; 
+    min-width: 200px !important; 
+    max-width: 200px !important; 
+    padding: 0 4px !important;   
 }
 
-/* 2. COMPACT CENTER (Fits browser better) */
 #floor-2 .col-center .panel-body {
     padding: 6px !important;
     gap: 4px !important;
@@ -374,13 +346,12 @@ option { color: #0f172a !important; background: white !important; }
     font-size: 11px;
 }
 
-/* 3. STALL SIZING FOR FLOOR 2 */
 #floor-2 .stall {
-    height: 42px !important; /* Balanced height */
+    height: 42px !important; 
     font-size: 15px !important;
     border-radius: 4px;
 }
-/* Adds a colored status dot to stalls even in Blue Map mode */
+
 .stall.occupied::after {
     content: '';
     position: absolute;
@@ -392,12 +363,10 @@ option { color: #0f172a !important; background: white !important; }
     box-shadow: 0 0 5px rgba(0,0,0,0.5);
 }
 
-/* Color the dot based on status */
-.stall.pay-good::after { background: #10b981; } /* Green Dot */
-.stall.pay-warn::after { background: #f59e0b; } /* Orange Dot */
-.stall.pay-crit::after { background: #ef4444; box-shadow: 0 0 8px #ef4444; } /* Glowing Red Dot */
+.stall.pay-good::after { background: #10b981; } 
+.stall.pay-warn::after { background: #f59e0b; } 
+.stall.pay-crit::after { background: #ef4444; box-shadow: 0 0 8px #ef4444; } 
 
-/* --- TOAST NOTIFICATIONS --- */
 #toast-container {
     position: fixed;
     bottom: 20px;
@@ -415,7 +384,7 @@ option { color: #0f172a !important; background: white !important; }
     color: #1e293b;
     border-radius: 8px;
     box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-    border-left: 5px solid #3b82f6; /* Default Blue */
+    border-left: 5px solid #3b82f6; 
     font-size: 14px;
     font-weight: 600;
     display: flex;
@@ -426,8 +395,8 @@ option { color: #0f172a !important; background: white !important; }
     transform: translateX(100%);
 }
 
-.toast.success { border-left-color: #10b981; } /* Green */
-.toast.error { border-left-color: #ef4444; }   /* Red */
+.toast.success { border-left-color: #10b981; } 
+.toast.error { border-left-color: #ef4444; }   
 
 @keyframes slideInRight {
     to { opacity: 1; transform: translateX(0); }
@@ -437,9 +406,8 @@ option { color: #0f172a !important; background: white !important; }
     to { opacity: 0; transform: translateY(10px); }
 }
 
-/* --- RESERVED STATUS COLORS --- */
 .stall.reserved {
-    background: linear-gradient(135deg, #cec002, #b9d906); /* Orange Gradient */
+    background: linear-gradient(135deg, #cec002, #b9d906);
     color: white;
     border: 1px solid #b45309;
     box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
@@ -450,9 +418,8 @@ option { color: #0f172a !important; background: white !important; }
     box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
 }
 
-/* Add a clock icon dot for reserved units */
 .stall.reserved::after {
-    content: '🕒'; /* Clock Icon */
+    content: '🕒'; 
     position: absolute;
     top: 2px;
     right: 2px;
