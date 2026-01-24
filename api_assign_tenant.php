@@ -113,6 +113,18 @@ try {
         $stmt3->execute();
     }
 
+
+    if ($initial_payment >= $goodwill_total && $goodwill_total > 0) {
+        $first_month = date('Y-m-01', strtotime($start_date));
+        
+        $dry_remarks = "Goodwill Offset"; 
+        $zero_amount = 0.00; 
+
+        $stmt_silent = $conn->prepare("INSERT INTO payments (renter_id, payment_date, amount, payment_type, month_paid_for, remarks) VALUES (?, CURDATE(), ?, 'rent', ?, ?)");
+        $stmt_silent->bind_param("idss", $final_renter_id, $zero_amount, $first_month, $dry_remarks);
+        $stmt_silent->execute();
+    }
+
     $conn->commit();
     echo json_encode(['success' => true]);
 } catch (Exception $e) {

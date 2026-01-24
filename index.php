@@ -78,6 +78,10 @@ function render_stall($floor, $pasilyo, $stall_label, $data)
     if ($stall) {
         $status = strtolower($stall['status']);
 
+        if ($status === 'occupied' && !empty($stall['start_date']) && $stall['start_date'] > date('Y-m-d')) {
+            $status = 'reserved'; 
+        }
+
         $name = xss($stall['renter_name'] ?? 'Vacant');
         $img = xss($stall['profile_image'] ?? 'default_avatar.png');
         $contact = xss($stall['contact_number']);
@@ -120,6 +124,16 @@ function render_stall($floor, $pasilyo, $stall_label, $data)
 </head>
 
 <body>
+
+<div id="mobileBlocker" style="display:none; position:fixed; z-index:999999; top:0; left:0; width:100%; height:100%; background:#0f172a; color:white; align-items:center; justify-content:center; text-align:center; padding:20px;">
+    <div>
+        <div style="font-size:50px; margin-bottom:15px;">🖥️</div>
+        <h1 style="margin:0 0 10px 0; font-size:24px; font-weight:800; color:#ef4444;">Desktop Required</h1>
+        <p style="color:#94a3b8; font-size:14px; max-width:300px; margin:0 auto;">
+            The Mall Command Center is restricted to desktop and tablet stations for security purposes.
+        </p>
+    </div>
+</div>
 
     <header class="top-bar">
         <div class="brand">Mall Monitor <small style="font-size:10px; opacity:0.6;"><?php echo strtoupper(str_replace('_', ' ', $current_role)); ?></small></div>
@@ -634,7 +648,7 @@ function render_stall($floor, $pasilyo, $stall_label, $data)
                 <div class="modal-body" style="display:flex; height:500px;">
                     <div class="modal-left" style="flex:1.5; padding:35px; border-right:1px solid #e2e8f0; overflow-y:auto;">
                         <div id="modalProfilePic" style="text-align:center; margin-bottom:20px; display:none;">
-                            <img id="mImage" src="default_avatar.png" style="width:140px; height:140px; border-radius:50%; object-fit:cover; border:4px solid #e2e8f0; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
+                            <img id="mImage" src="default_avatar.png" style="width:200px; height:200px; border-radius:50%; object-fit:cover; border:4px solid #e2e8f0; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
                         </div>
 
                         <div id="renterDetails">
@@ -814,22 +828,13 @@ function render_stall($floor, $pasilyo, $stall_label, $data)
                                 <input type="text" name="renter_name" required
                                     style="width:100%; padding:10px; margin-bottom:10px; border:1px solid #fcd34d; border-radius:6px;">
 
-                                <label style="font-size:12px; font-weight:700; color:#b45309;">CONTACT NUMBER (11 Digits)</label>
-                                <input type="text" name="contact_number" maxlength="11" oninput="this.value = this.value.replace(/[^0-9]/g, '')"
+                                <label style="font-size:12px; font-weight:700; color:#b45309;">CONTACT NUMBER (Strictly 11 Digits)</label>
+                                <input type="text" name="contact_number" maxlength="11" minlength="11" required 
+                                    oninput="this.value = this.value.replace(/[^0-9]/g, '')"
                                     style="width:100%; padding:10px; margin-bottom:10px; border:1px solid #fcd34d; border-radius:6px;">
 
-                                <div style="display:flex; gap:10px;">
-                                    <div style="flex:1;">
-                                        <label style="font-size:12px; font-weight:700; color:#b45309;">DATE</label>
-                                        <input type="date" name="reservation_date" value="<?php echo date('Y-m-d'); ?>"
-                                            style="width:100%; padding:10px; border:1px solid #fcd34d; border-radius:6px;">
-                                    </div>
-                                    <div style="flex:1;">
-                                        <label style="font-size:12px; font-weight:700; color:#b45309;">FEE (Optional)</label>
-                                        <input type="number" name="reservation_fee" placeholder="0.00"
-                                            style="width:100%; padding:10px; border:1px solid #fcd34d; border-radius:6px;">
-                                    </div>
-                                </div>
+                                <input type="hidden" name="reservation_date" value="<?php echo date('Y-m-d'); ?>">
+                                <input type="hidden" name="reservation_fee" value="0">
 
                                 <button type="button" onclick="submitReservation()"
                                     style="width:100%; padding:14px; background:#d97706; color:white; border:none; border-radius:8px; margin-top:15px; font-weight:bold; cursor:pointer;">
@@ -857,47 +862,23 @@ function render_stall($floor, $pasilyo, $stall_label, $data)
         </div>
 
         <div id="hoverCard" style="display:none; position:fixed; z-index:20001; width:220px; background:white; border-radius:8px; box-shadow:0 10px 40px rgba(0,0,0,0.2); pointer-events:none; overflow:hidden;">
-            <div style="height:40px; background:#1e293b; display:flex; align-items:center; justify-content:center;">
+            <div style="height:35px; background:#1e293b; display:flex; align-items:center; justify-content:center;">
                 <span id="hoverStatus" style="color:white; font-size:10px; font-weight:700; background:rgba(255,255,255,0.2); padding:2px 8px; border-radius:4px;">OCCUPIED</span>
             </div>
-            <div style="padding:15px; display:flex; gap:12px; align-items:center;">
-                <img id="hoverImg" src="default_avatar.png" style="width:40px; height:40px; border-radius:50%; object-fit:cover;">
-                <div>
-                    <div id="hoverName" style="font-size:13px; font-weight:700; color:#0f172a;">Name</div>
-                    <div id="hoverContact" style="font-size:11px; color:#64748b;">Contact</div>
-                    <div id="hoverDue" style="font-size:10px; font-weight:700; color:#10b981;">Paid</div>
+            
+            <div style="padding:10px; display:flex; gap:10px; align-items:center;">
+                
+                <img id="hoverImg" src="default_avatar.png" style="width:65px; height:65px; border-radius:50%; object-fit:cover; border:2px solid #e2e8f0; flex-shrink:0; box-shadow:0 2px 4px rgba(0,0,0,0.05);">
+                
+                <div style="flex:1; min-width:0; display:flex; flex-direction:column; justify-content:center;">
+                    <div id="hoverName" style="font-size:13px; font-weight:800; color:#0f172a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; line-height:1.2;">Name</div>
+                    <div id="hoverContact" style="font-size:11px; color:#64748b; margin-top:2px;">Contact</div>
+                    <div id="hoverDue" style="font-size:10px; font-weight:700; color:#10b981; margin-top:3px;">Paid</div>
                 </div>
             </div>
         </div>
 
         <script src="script.js"></script>
-        <div class="mobile-nav">
-            <div class="nav-item active" onclick="switchFloor(1); document.querySelectorAll('.nav-item').forEach(e=>e.classList.remove('active')); this.classList.add('active');">
-                <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                    <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"></path>
-                </svg>
-                <span>Floor 1</span>
-            </div>
-            <div class="nav-item" onclick="switchFloor(2); document.querySelectorAll('.nav-item').forEach(e=>e.classList.remove('active')); this.classList.add('active');">
-                <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                    <path d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5"></path>
-                </svg>
-                <span>Floor 2</span>
-            </div>
-            <div class="nav-item" onclick="toggleMode(this, 'payment')">
-                <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                    <path d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                </svg>
-                <span>Payments</span>
-            </div>
-            <div class="nav-item" onclick="openSettings()">
-                <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                    <path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
-                    <path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                </svg>
-                <span>Menu</span>
-            </div>
-        </div>
 
         <div id="toast-container"></div>
 

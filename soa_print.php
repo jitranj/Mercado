@@ -52,8 +52,6 @@ function renderSOA($conn, $renter_id) {
 
     $grand_total = $total_due + $goodwill_due;
     
-    if ($grand_total <= 0) return;
-
     $period_string = "";
     if (count($unpaid_months) > 0) {
         $first = strtoupper($unpaid_months[0]);

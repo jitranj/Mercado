@@ -420,11 +420,23 @@ function openModal(id) {
                 const nextDue = d.renter.next_due;
                 const today = new Date().toISOString().slice(0, 7);
                 window.isRentPaidUp = (nextDue > today);
+                
+                window.goodwillBalance = parseFloat(d.renter.goodwill.balance);
+                window.isGoodwillPaidUp = (window.goodwillBalance <= 0);
 
                 document.getElementById('payMonth').value = nextDue;
                 document.getElementById('payAmount').value = d.stall.rate;
 
-                if (window.isRentPaidUp) {
+                if (window.isRentPaidUp && window.isGoodwillPaidUp) {
+                    let badge = document.createElement('div');
+                    badge.id = 'paidUpBadge';
+                    badge.innerHTML = "🌟 FULLY PAID (RENT & GOODWILL)";
+                    badge.style.cssText = "background:#dcfce7; color:#166534; padding:12px; border-radius:8px; font-weight:800; text-align:center; margin-bottom:15px; border:1px solid #bbf7d0; font-size:14px;";
+                    document.getElementById('renterDetails').insertBefore(badge, btnPay);
+
+                    btnPay.style.display = 'none'; 
+                } 
+                else if (window.isRentPaidUp && !window.isGoodwillPaidUp) {
                     let badge = document.createElement('div');
                     badge.id = 'paidUpBadge';
                     badge.innerHTML = "✅ RENT UP TO DATE";
@@ -432,8 +444,19 @@ function openModal(id) {
                     document.getElementById('renterDetails').insertBefore(badge, btnPay);
 
                     btnPay.style.display = canFinancials ? 'block' : 'none';
-                    btnPay.innerText = "Record Payment";
-                } else {
+                    btnPay.innerText = "Pay Goodwill";
+                } 
+                else if (!window.isRentPaidUp && window.isGoodwillPaidUp) {
+                    let badge = document.createElement('div');
+                    badge.id = 'paidUpBadge';
+                    badge.innerHTML = "✅ GOODWILL FULLY PAID";
+                    badge.style.cssText = "background:#dcfce7; color:#166534; padding:12px; border-radius:8px; font-weight:700; text-align:center; margin-bottom:15px; border:1px solid #bbf7d0; font-size:14px;";
+                    document.getElementById('renterDetails').insertBefore(badge, btnPay);
+
+                    btnPay.style.display = canFinancials ? 'block' : 'none';
+                    btnPay.innerText = "Pay Bill for: " + nextDue;
+                }
+                else {
                     btnPay.style.display = canFinancials ? 'block' : 'none';
                     btnPay.innerText = "Pay Bill for: " + nextDue;
                 }
@@ -480,6 +503,11 @@ function openModal(id) {
                     let label = '';
                     let amtStyle = 'font-weight:bold;';
                     let dateStr = h.payment_date ? new Date(h.payment_date).toLocaleDateString() : 'N/A';
+                    
+                    let amtDisplay = `₱${parseInt(h.amount).toLocaleString()}`;
+                    if (parseFloat(h.amount) === 0) {
+                        amtDisplay = `<span style="color:#10b981; font-style:italic; letter-spacing:1px;">FREE</span>`;
+                    }
 
                     if (h.payment_type === 'goodwill') {
                         label = `<span style="background:#ffedd5; color:#c2410c; padding:2px 6px; border-radius:4px; font-size:10px; font-weight:800;">GW</span>`;
@@ -501,7 +529,7 @@ function openModal(id) {
                                     Paid: ${dateStr} <span style="color:#cbd5e1;">|</span> OR# ${h.or_no || '--'}
                                 </div>
                             </td>
-                            <td style="text-align:right; ${amtStyle}">₱${parseInt(h.amount).toLocaleString()}</td>
+                            <td style="text-align:right; ${amtStyle}">${amtDisplay}</td>
                         </tr>`;
                 });
                 document.getElementById('historyList').innerHTML = hHtml || '<tr><td colspan="2" style="text-align:center; padding:15px; color:#94a3b8;">No payment history</td></tr>';
@@ -541,17 +569,17 @@ function togglePayForm() {
         document.getElementById('payRenterId').value = window.currentRenterId;
 
         const rentOpt = document.querySelector('#payType option[value="rent"]');
+        const gwOpt = document.querySelector('#payType option[value="goodwill"]');
         const payTypeSelect = document.getElementById('payType');
 
-        if (window.isRentPaidUp) {
-            rentOpt.disabled = true;
-            rentOpt.innerText = "Monthly Rent (Paid Up)";
-            payTypeSelect.value = 'goodwill';
-        } else {
-            rentOpt.disabled = false;
-            rentOpt.innerText = "Monthly Rent";
-            payTypeSelect.value = 'rent';
-        }
+        rentOpt.disabled = window.isRentPaidUp;
+        rentOpt.innerText = window.isRentPaidUp ? "Monthly Rent (Paid Up)" : "Monthly Rent";
+
+        gwOpt.disabled = window.isGoodwillPaidUp;
+        gwOpt.innerText = window.isGoodwillPaidUp ? "Goodwill (Fully Paid)" : "Goodwill";
+
+        if (!window.isRentPaidUp) payTypeSelect.value = 'rent';
+        else if (!window.isGoodwillPaidUp) payTypeSelect.value = 'goodwill';
 
         toggleMonthInput(); 
     }
@@ -583,6 +611,15 @@ function submitPayment() {
         return;
     }
 
+    const amount = parseFloat(formData.get('amount') || 0);
+
+    if (type === 'goodwill') {
+        if (amount > window.goodwillBalance) {
+            showToast(`⚠️ Cannot overpay! The remaining Goodwill balance is only ₱${window.goodwillBalance.toLocaleString()}.`, "error");
+            return; 
+        }
+    }
+
     fetch('api_add_payment.php', { method: 'POST', body: formData })
         .then(r => r.json()).then(d => {
             if (d.success) {
@@ -596,7 +633,17 @@ function submitPayment() {
 }
 
 function submitNewTenant() {
-    const fd = new FormData(document.getElementById('tenantForm'));
+    const form = document.getElementById('tenantForm');
+    const fd = new FormData(form);
+
+    const gwTotal = parseFloat(fd.get('goodwill_total') || 0);
+    const initPay = parseFloat(fd.get('initial_payment') || 0);
+
+    if (initPay > gwTotal) {
+        showToast(`⚠️ Error: Payment (₱${initPay.toLocaleString()}) cannot exceed the total Goodwill of ₱${gwTotal.toLocaleString()}.`, "error");
+        return; 
+    }
+
     fetch('api_assign_tenant.php', { method: 'POST', body: fd })
         .then(r => r.json())
         .then(d => {
@@ -693,25 +740,46 @@ const hoverDue = document.getElementById('hoverDue');
 
 document.querySelectorAll('.stall').forEach(stall => {
     stall.addEventListener('mouseenter', (e) => {
-        if (stall.getAttribute('data-status') === 'occupied') {
+        const status = stall.getAttribute('data-status');
+
+        if (status === 'occupied' || status === 'reserved') {
             hoverName.innerText = stall.getAttribute('data-renter');
             hoverContact.innerText = stall.getAttribute('data-contact') || 'No Info';
 
             let img = stall.getAttribute('data-image');
             hoverImg.src = (img && img !== 'null') ? img : `https://ui-avatars.com/api/?name=${hoverName.innerText}&background=random`;
 
-            let due = parseInt(stall.getAttribute('data-due'));
-            if (due > 0) {
-                hoverDue.innerText = `${due} Months Due`;
-                hoverDue.style.color = "#ef4444";
+            const hoverStatusBadge = document.getElementById('hoverStatus');
+            const hoverHeader = hoverCard.querySelector('div'); 
+
+            if (status === 'reserved') {
+                hoverStatusBadge.innerText = "RESERVED";
+                hoverStatusBadge.style.color = "#fcd34d"; 
+                hoverStatusBadge.style.background = "rgba(252, 211, 77, 0.2)";
+                hoverHeader.style.background = "#78350f"; 
+
+                hoverDue.innerText = "Pending Move-in";
+                hoverDue.style.color = "#d97706"; 
             } else {
-                hoverDue.innerText = "Good Standing";
-                hoverDue.style.color = "#10b981";
+                hoverStatusBadge.innerText = "OCCUPIED";
+                hoverStatusBadge.style.color = "white";
+                hoverStatusBadge.style.background = "rgba(255,255,255,0.2)";
+                hoverHeader.style.background = "#1e293b"; 
+
+                let due = parseInt(stall.getAttribute('data-due'));
+                if (due > 0) {
+                    hoverDue.innerText = `${due} Months Due`;
+                    hoverDue.style.color = "#ef4444";
+                } else {
+                    hoverDue.innerText = "Good Standing";
+                    hoverDue.style.color = "#10b981";
+                }
             }
 
             hoverCard.style.display = 'block';
         }
     });
+
     stall.addEventListener('mousemove', (e) => {
         let x = e.clientX - 245;
         let y = e.clientY - 110;
@@ -722,6 +790,7 @@ document.querySelectorAll('.stall').forEach(stall => {
         hoverCard.style.left = x + 'px';
         hoverCard.style.top = y + 'px';
     });
+
     stall.addEventListener('mouseleave', () => {
         hoverCard.style.display = 'none';
     });
