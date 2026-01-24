@@ -130,7 +130,7 @@ function render_stall($floor, $pasilyo, $stall_label, $data)
         <div style="font-size:50px; margin-bottom:15px;">🖥️</div>
         <h1 style="margin:0 0 10px 0; font-size:24px; font-weight:800; color:#ef4444;">Desktop Required</h1>
         <p style="color:#94a3b8; font-size:14px; max-width:300px; margin:0 auto;">
-            The Mall Command Center is restricted to desktop and tablet stations for security purposes.
+            The Mall Monitor System is restricted for security purposes.
         </p>
     </div>
 </div>
