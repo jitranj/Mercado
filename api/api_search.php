@@ -1,6 +1,6 @@
 <?php
 header('Content-Type: application/json');
-include 'db_connect.php';
+include '../db/db_connect.php';
 
 $query = $_GET['q'] ?? '';
 
@@ -30,7 +30,7 @@ while ($row = $result->fetch_assoc()) {
         'label' => $row['renter_name'] ? $row['renter_name'] : "Stall " . $row['stall_number'],
         'sub' => "Floor " . $row['floor'] . " - " . $row['pasilyo'],
         'floor' => $row['floor'],
-        'img' => $row['profile_image'] ?? 'default_avatar.png'
+        'img' => $row['profile_image'] ?? 'style/default_avatar.png'
     ];
 }
 

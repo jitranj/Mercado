@@ -1,7 +1,7 @@
 <?php
 session_start();
-include 'db_connect.php';
-include 'helpers.php';
+include '../db/db_connect.php';
+include '../db/helpers.php';
 
 if (!isset($_SESSION['user_id'])) {
     die("Access Denied");

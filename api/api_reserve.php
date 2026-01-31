@@ -1,6 +1,6 @@
 <?php
 header('Content-Type: application/json');
-include 'db_connect.php';
+include '../db/db_connect.php';
 
 $stall_id = $_POST['stall_id'] ?? 0;
 $name = $_POST['renter_name'] ?? '';

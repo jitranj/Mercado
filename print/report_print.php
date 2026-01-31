@@ -1,5 +1,5 @@
 <?php
-include 'db_connect.php';
+include '../db/db_connect.php';
 
 $type = $_GET['type'] ?? 'dashboard';
 $current_date = date('F d, Y');

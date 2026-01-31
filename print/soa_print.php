@@ -1,5 +1,5 @@
 <?php
-include 'db_connect.php';
+include '../db/db_connect.php';
 
 function renderSOA($conn, $renter_id) {
     $sql = "SELECT r.*, s.stall_number, s.pasilyo, s.monthly_rate 
@@ -65,7 +65,7 @@ function renderSOA($conn, $renter_id) {
     <div class="page-container">
         <div class="header-grid">
             <div class="logo-box">
-                <img src="uploads/logo_lgu.png" alt="LGU Logo" onerror="this.style.display='none'">
+                <img src="../uploads/logo_lgu.png" alt="LGU Logo" onerror="this.style.display='none'">
             </div>
             <div class="header-text">
                 <div class="republic">Republic of the Philippines</div>
@@ -75,7 +75,7 @@ function renderSOA($conn, $renter_id) {
                 <h1 class="market-name">EL MERCADO DE CALUMPIT</h1>
             </div>
             <div class="logo-box">
-                <img src="uploads/logo_market.png" alt="Market Logo" onerror="this.style.display='none'">
+                <img src="../uploads/logo_market.png" alt="Market Logo" onerror="this.style.display='none'">
             </div>
         </div>
 

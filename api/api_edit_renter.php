@@ -1,10 +1,12 @@
 <?php
-ob_start();
+session_set_cookie_params(0, '/'); 
 
 session_start();
-include 'db_connect.php';
-
 header('Content-Type: application/json');
+
+ob_start();
+
+include '../db/db_connect.php';
 
 function sendJson($success, $message = '') {
     ob_clean(); 
@@ -13,9 +15,8 @@ function sendJson($success, $message = '') {
 }
 
 if (!isset($_SESSION['user_id'])) {
-    sendJson(false, 'Unauthorized');
+    sendJson(false, 'Unauthorized - Session Not Found');
 }
-
 
 $current_role = $_SESSION['role'] ?? 'staff';
 if (!in_array($current_role, ['admin', 'manager'])) {
@@ -77,22 +78,34 @@ if ($sensitive_change && !empty($new_start_date) && $new_start_date !== $current
     $stmt_date->execute();
 }
 
-if (!is_dir("uploads")) { @mkdir("uploads", 0755, true); }
+$physical_dir = "../uploads/"; 
+
+if (!is_dir($physical_dir)) { 
+    @mkdir($physical_dir, 0755, true); 
+}
 
 if (!empty($_FILES['profile_image']['name'])) {
-    $target = "uploads/" . time() . "_" . basename($_FILES['profile_image']['name']);
-    if(@move_uploaded_file($_FILES['profile_image']['tmp_name'], $target)) {
+    $filename = time() . "_" . basename($_FILES['profile_image']['name']);
+    
+    $physical_target = $physical_dir . $filename; 
+    $db_target = "uploads/" . $filename;          
+
+    if(@move_uploaded_file($_FILES['profile_image']['tmp_name'], $physical_target)) {
         $stmt_pic = $conn->prepare("UPDATE renters SET profile_image = ? WHERE renter_id = ?");
-        $stmt_pic->bind_param("si", $target, $renter_id);
+        $stmt_pic->bind_param("si", $db_target, $renter_id);
         $stmt_pic->execute();
     }
 }
 
 if ($sensitive_change && !empty($_FILES['contract_file']['name'])) {
-    $target = "uploads/" . time() . "_contract_" . basename($_FILES['contract_file']['name']);
-    if(@move_uploaded_file($_FILES['contract_file']['tmp_name'], $target)) {
+    $filename = time() . "_contract_" . basename($_FILES['contract_file']['name']);
+    
+    $physical_target = $physical_dir . $filename; 
+    $db_target = "uploads/" . $filename;          
+
+    if(@move_uploaded_file($_FILES['contract_file']['tmp_name'], $physical_target)) {
         $stmt_cont = $conn->prepare("UPDATE renters SET contract_file = ? WHERE renter_id = ?");
-        $stmt_cont->bind_param("si", $target, $renter_id);
+        $stmt_cont->bind_param("si", $db_target, $renter_id);
         $stmt_cont->execute();
     }
 }

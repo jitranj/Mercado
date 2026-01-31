@@ -6,8 +6,8 @@ if (!isset($_SESSION['user_id'])) {
     header("Location: login.php");
     exit;
 }
-include 'db_connect.php';
-include 'helpers.php';
+include 'db/db_connect.php';
+include 'db/helpers.php';
 
 $current_role = $_SESSION['role'] ?? 'staff_monitor';
 
@@ -79,11 +79,11 @@ function render_stall($floor, $pasilyo, $stall_label, $data)
         $status = strtolower($stall['status']);
 
         if ($status === 'occupied' && !empty($stall['start_date']) && $stall['start_date'] > date('Y-m-d')) {
-            $status = 'reserved'; 
+            $status = 'reserved';
         }
 
         $name = xss($stall['renter_name'] ?? 'Vacant');
-        $img = xss($stall['profile_image'] ?? 'default_avatar.png');
+        $img = xss($stall['profile_image'] ?? 'style/default_avatar.png');
         $contact = xss($stall['contact_number']);
 
         $months_due = (int)$stall['months_unpaid'];
@@ -103,6 +103,7 @@ function render_stall($floor, $pasilyo, $stall_label, $data)
             <span class='stall-id'>$stall_label</span>
             </div>";
 }
+
 ?>
 
 <!DOCTYPE html>
@@ -112,11 +113,11 @@ function render_stall($floor, $pasilyo, $stall_label, $data)
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Mall Command Center</title>
-    <link rel="icon" type="image/png" href="logo.png">
+    <link rel="icon" type="image/png" href="style/logo.png">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style/style.css">
 
     <script>
         const USER_ROLE = '<?php echo xss($current_role); ?>';
@@ -125,68 +126,74 @@ function render_stall($floor, $pasilyo, $stall_label, $data)
 
 <body>
 
-<div id="mobileBlocker" style="display:none; position:fixed; z-index:999999; top:0; left:0; width:100%; height:100%; background:#0f172a; color:white; align-items:center; justify-content:center; text-align:center; padding:20px;">
-    <div>
-        <div style="font-size:50px; margin-bottom:15px;">🖥️</div>
-        <h1 style="margin:0 0 10px 0; font-size:24px; font-weight:800; color:#ef4444;">Desktop Required</h1>
-        <p style="color:#94a3b8; font-size:14px; max-width:300px; margin:0 auto;">
-            The Mall Monitor System is restricted for security purposes.
-        </p>
+    <div id="mobileBlocker" style="display:none; position:fixed; z-index:999999; top:0; left:0; width:100%; height:100%; background:#0f172a; color:white; align-items:center; justify-content:center; text-align:center; padding:20px;">
+        <div>
+            <div style="font-size:50px; margin-bottom:15px;">🖥️</div>
+            <h1 style="margin:0 0 10px 0; font-size:24px; font-weight:800; color:#ef4444;">Desktop Required</h1>
+            <p style="color:#94a3b8; font-size:14px; max-width:300px; margin:0 auto;">
+                The Mercado Monitor System is restricted for security purposes.
+            </p>
+        </div>
     </div>
-</div>
 
     <header class="top-bar">
-        <div class="brand">Mall Monitor <small style="font-size:10px; opacity:0.6;"><?php echo strtoupper(str_replace('_', ' ', $current_role)); ?></small></div>
+        <div class="brand">Mercado Monitor <small style="font-size:10px; opacity:0.6;"><?php echo strtoupper(str_replace('_', ' ', $current_role)); ?></small></div>
         <div class="controls-area">
             <div class="search-box">
                 <input type="text" id="searchInput" placeholder="Search..." onkeyup="liveSearch()">
                 <div id="searchResults" style="display:none; position:absolute; top:40px; left:0; width:100%; background:white; border-radius:8px; box-shadow:0 10px 30px rgba(0,0,0,0.2); z-index:200; overflow:hidden;"></div>
             </div>
 
-            <?php if ($current_role === 'admin' || $current_role === 'manager'): ?>
-                <button class="btn-icon" onclick="openAnalytics()">
-                    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M3 3v18h18" />
-                        <path d="M18 17V9" />
-                        <path d="M13 17V5" />
-                        <path d="M8 17v-3" />
-                    </svg>
-                    Reports
-                </button>
-            <?php endif; ?>
-
-            <?php if ($current_role === 'admin'): ?>
-                <button class="btn-icon" onclick="openSettings()">
-                    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="12" cy="12" r="3" />
-                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
-                    </svg>
-                </button>
-            <?php endif; ?>
+            <button class="btn-icon" onclick="toggleTheme()" title="Switch Theme">
+                <span id="themeIcon">☀️</span>
+            </button>
 
             <div class="toggle-group">
-                <button class="toggle-btn active" onclick="toggleMode(this, 'occupancy')">Map</button>
-                <button class="toggle-btn" onclick="toggleMode(this, 'payment')">Status</button>
-            </div>
-            <div class="toggle-group">
-                <button id="btn-f1" class="toggle-btn active" onclick="switchFloor(1)">1F</button>
-                <button id="btn-f2" class="toggle-btn" onclick="switchFloor(2)">2F</button>
-            </div>
-            <div class="user-menu" style="display:flex; align-items:center; gap:10px; margin-left:10px;">
-                <span style="font-size:12px; color:#94a3b8;">
-                    <?php echo htmlspecialchars($_SESSION['username']); ?>
-                    (<?php echo ucfirst($_SESSION['role']); ?>)
-                </span>
-<a href="#" onclick="confirmAction('Sign Out', 'Are you sure you want to log out?', () => window.location.href='logout.php', 'logout'); return false;" class="btn-logout" style="
+
+                <?php if ($current_role === 'admin' || $current_role === 'manager'): ?>
+                    <button class="btn-icon" onclick="openAnalytics()">
+                        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M3 3v18h18" />
+                            <path d="M18 17V9" />
+                            <path d="M13 17V5" />
+                            <path d="M8 17v-3" />
+                        </svg>
+                        Reports
+                    </button>
+                <?php endif; ?>
+
+                <?php if ($current_role === 'admin'): ?>
+                    <button class="btn-icon" onclick="openSettings()">
+                        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="3" />
+                            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                        </svg>
+                    </button>
+                <?php endif; ?>
+
+                <div class="toggle-group">
+                    <button class="toggle-btn active" onclick="toggleMode(this, 'occupancy')">Map</button>
+                    <button class="toggle-btn" onclick="toggleMode(this, 'payment')">Status</button>
+                </div>
+                <div class="toggle-group">
+                    <button id="btn-f1" class="toggle-btn active" onclick="switchFloor(1)">1F</button>
+                    <button id="btn-f2" class="toggle-btn" onclick="switchFloor(2)">2F</button>
+                </div>
+                <div class="user-menu" style="display:flex; align-items:center; gap:10px; margin-left:10px;">
+                    <span style="font-size:12px; color:#94a3b8;">
+                        <?php echo htmlspecialchars($_SESSION['username']); ?>
+                        (<?php echo ucfirst($_SESSION['role']); ?>)
+                    </span>
+                    <a href="#" onclick="confirmAction('Sign Out', 'Are you sure you want to log out?', () => window.location.href='logout.php', 'logout'); return false;" class="btn-logout" style="
                     background: #ef4444; color: white; text-decoration: none; 
                     padding: 6px 12px; border-radius: 6px; font-size: 11px; font-weight: 700;
                     display: flex; align-items: center; gap: 5px;">
-                    <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24">
-                        <path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
-                    </svg>
-                    Sign Out
-                </a>
-        </div>
+                        <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24">
+                            <path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
+                        </svg>
+                        Sign Out
+                    </a>
+                </div>
     </header>
 
     <div class="dashboard-container">
@@ -502,22 +509,22 @@ function render_stall($floor, $pasilyo, $stall_label, $data)
                             <p style="font-size:14px; color:#64748b; margin-bottom:16px; font-weight:500;">Print official reports or download backups.</p>
                             <div style="display:flex; gap:10px; flex-wrap:wrap;">
 
-                                <button onclick="window.open('report_print.php?type=red_list', '_blank')"
+                                <button onclick="window.open('print/report_print.php?type=red_list', '_blank')"
                                     style="padding:12px 16px; background:#ef4444; color:white; border:none; border-radius:8px; cursor:pointer; font-weight:600; transition:transform 0.2s, box-shadow 0.2s; box-shadow:0 2px 4px rgba(239,68,68,0.2);">
                                     📄 Delinquent Report
                                 </button>
 
-                                <button onclick="window.open('report_print.php?type=tenants', '_blank')"
+                                <button onclick="window.open('print/report_print.php?type=tenants', '_blank')"
                                     style="padding:12px 16px; background:#8b5cf6; color:white; border:none; border-radius:8px; cursor:pointer; font-weight:600; transition:transform 0.2s, box-shadow 0.2s; box-shadow:0 2px 4px rgba(139,92,246,0.2);">
                                     📄 Tenant Masterlist
                                 </button>
 
-                                <button onclick="location.href='api_admin.php?action=export_payments_csv'"
+                                <button onclick="location.href='api/api_admin.php?action=export_payments_csv'"
                                     style="padding:12px 16px; background:#3b82f6; color:white; border:none; border-radius:8px; cursor:pointer; font-weight:600; transition:transform 0.2s, box-shadow 0.2s; box-shadow:0 2px 4px rgba(59,130,246,0.2);">
                                     📊 Payments (CSV)
                                 </button>
 
-                                <button onclick="location.href='api_admin.php?action=export_backup'"
+                                <button onclick="location.href='api/api_admin.php?action=export_backup'"
                                     style="padding:12px 16px; background:#374151; color:white; border:none; border-radius:8px; cursor:pointer; font-weight:600; transition:transform 0.2s, box-shadow 0.2s; box-shadow:0 2px 4px rgba(55,65,81,0.2);">
                                     💾 Full SQL Backup
                                 </button>
@@ -648,13 +655,34 @@ function render_stall($floor, $pasilyo, $stall_label, $data)
                 <div class="modal-body" style="display:flex; height:500px;">
                     <div class="modal-left" style="flex:1.5; padding:35px; border-right:1px solid #e2e8f0; overflow-y:auto;">
                         <div id="modalProfilePic" style="text-align:center; margin-bottom:20px; display:none;">
-                            <img id="mImage" src="default_avatar.png" style="width:200px; height:200px; border-radius:50%; object-fit:cover; border:4px solid #e2e8f0; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
+                            <img id="mImage" src="style/default_avatar.png" style="width:200px; height:200px; border-radius:50%; object-fit:cover; border:4px solid #e2e8f0; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
                         </div>
 
                         <div id="renterDetails">
                             <h3 id="rName" style="text-align:center; margin:0 0 5px; font-size:20px;">--</h3>
                             <p id="rContact" style="text-align:center; font-size:14px; color:#64748b; margin:0 0 5px;">--</p>
                             <p id="rDate" style="text-align:center; font-size:12px; color:#94a3b8; margin:0 0 20px;">--</p>
+                            <div id="banDisplay" onclick="copyBan()" style="display:none; margin: 10px 0; background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); border: 1px dashed #7dd3fc; padding: 8px 12px; border-radius: 8px; cursor: pointer; transition: all 0.2s ease;"
+                                onmouseover="this.style.borderColor='#0ea5e9'; this.style.backgroundColor='#e0f2fe';"
+                                onmouseout="this.style.borderColor='#7dd3fc'; this.style.backgroundColor='';">
+
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <div style="text-align: left;">
+                                        <div style="font-size: 9px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px;">
+                                            💳 E-Billing No.
+                                        </div>
+                                        <div id="rBan" style="font-size: 18px; font-weight: 800; color: #0284c7; font-family: 'Courier New', monospace; letter-spacing: 1px; line-height: 1;">
+                                            --
+                                        </div>
+                                    </div>
+
+                                    <div style="background: white; width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: #0284c7; border: 1px solid #e0f2fe;">
+                                        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                                        </svg>
+                                    </div>
+                                </div>
+                            </div>
 
                             <button id="btnRecordPay" onclick="togglePayForm()" style="width:100%; padding:12px; background:#3b82f6; color:white; border:none; border-radius:8px; cursor:pointer; display:none; font-weight:bold;">Record Payment</button>
                             <button id="btnGenerateSOA" style="width:100%; margin-top:10px; padding:12px; background:white; border:1px solid #10b981; color:#10b981; border-radius:8px; cursor:pointer; display:none; font-weight:bold;">Generate SOA</button>
@@ -829,7 +857,7 @@ function render_stall($floor, $pasilyo, $stall_label, $data)
                                     style="width:100%; padding:10px; margin-bottom:10px; border:1px solid #fcd34d; border-radius:6px;">
 
                                 <label style="font-size:12px; font-weight:700; color:#b45309;">CONTACT NUMBER (Strictly 11 Digits)</label>
-                                <input type="text" name="contact_number" maxlength="11" minlength="11" required 
+                                <input type="text" name="contact_number" maxlength="11" minlength="11" required
                                     oninput="this.value = this.value.replace(/[^0-9]/g, '')"
                                     style="width:100%; padding:10px; margin-bottom:10px; border:1px solid #fcd34d; border-radius:6px;">
 
@@ -865,11 +893,11 @@ function render_stall($floor, $pasilyo, $stall_label, $data)
             <div style="height:35px; background:#1e293b; display:flex; align-items:center; justify-content:center;">
                 <span id="hoverStatus" style="color:white; font-size:10px; font-weight:700; background:rgba(255,255,255,0.2); padding:2px 8px; border-radius:4px;">OCCUPIED</span>
             </div>
-            
+
             <div style="padding:10px; display:flex; gap:10px; align-items:center;">
-                
-                <img id="hoverImg" src="default_avatar.png" style="width:65px; height:65px; border-radius:50%; object-fit:cover; border:2px solid #e2e8f0; flex-shrink:0; box-shadow:0 2px 4px rgba(0,0,0,0.05);">
-                
+
+                <img id="hoverImg" src="style/default_avatar.png" style="width:65px; height:65px; border-radius:50%; object-fit:cover; border:2px solid #e2e8f0; flex-shrink:0; box-shadow:0 2px 4px rgba(0,0,0,0.05);">
+
                 <div style="flex:1; min-width:0; display:flex; flex-direction:column; justify-content:center;">
                     <div id="hoverName" style="font-size:13px; font-weight:800; color:#0f172a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; line-height:1.2;">Name</div>
                     <div id="hoverContact" style="font-size:11px; color:#64748b; margin-top:2px;">Contact</div>
@@ -878,61 +906,75 @@ function render_stall($floor, $pasilyo, $stall_label, $data)
             </div>
         </div>
 
-        <script src="script.js"></script>
+        <script src="style/script.js"></script>
 
         <div id="toast-container"></div>
 
-<div id="systemModal" style="display:none; position:fixed; z-index:30000; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.5); backdrop-filter:blur(4px); align-items:center; justify-content:center;">
-    <div style="background:white; width:90%; max-width:400px; padding:25px; border-radius:12px; box-shadow:0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04); text-align:center; transform:scale(0.95); animation:modalPop 0.2s forwards;">
-        
-        <div id="sysIcon" style="font-size:40px; margin-bottom:15px;">⚠️</div>
-        <h3 id="sysTitle" style="margin:0 0 10px 0; color:#1e293b; font-size:20px;">Are you sure?</h3>
-        <p id="sysMessage" style="color:#64748b; font-size:14px; margin:0 0 25px 0; line-height:1.5;">Please confirm this action.</p>
+        <div id="systemModal" style="display:none; position:fixed; z-index:30000; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.5); backdrop-filter:blur(4px); align-items:center; justify-content:center;">
+            <div style="background:white; width:90%; max-width:400px; padding:25px; border-radius:12px; box-shadow:0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04); text-align:center; transform:scale(0.95); animation:modalPop 0.2s forwards;">
 
-        <div style="display:flex; gap:10px; justify-content:center;">
-            <button id="sysBtnCancel" onclick="closeSysModal()" 
-                style="padding:10px 20px; background:#e2e8f0; color:#475569; border:none; border-radius:8px; font-weight:600; cursor:pointer; flex:1;">
-                Cancel
-            </button>
-            <button id="sysBtnConfirm" 
-                style="padding:10px 20px; background:#ef4444; color:white; border:none; border-radius:8px; font-weight:600; cursor:pointer; flex:1; box-shadow:0 4px 6px -1px rgba(239, 68, 68, 0.3);">
-                Confirm
-            </button>
+                <div id="sysIcon" style="font-size:40px; margin-bottom:15px;">⚠️</div>
+                <h3 id="sysTitle" style="margin:0 0 10px 0; color:#1e293b; font-size:20px;">Are you sure?</h3>
+                <p id="sysMessage" style="color:#64748b; font-size:14px; margin:0 0 25px 0; line-height:1.5;">Please confirm this action.</p>
+
+                <div style="display:flex; gap:10px; justify-content:center;">
+                    <button id="sysBtnCancel" onclick="closeSysModal()"
+                        style="padding:10px 20px; background:#e2e8f0; color:#475569; border:none; border-radius:8px; font-weight:600; cursor:pointer; flex:1;">
+                        Cancel
+                    </button>
+                    <button id="sysBtnConfirm"
+                        style="padding:10px 20px; background:#ef4444; color:white; border:none; border-radius:8px; font-weight:600; cursor:pointer; flex:1; box-shadow:0 4px 6px -1px rgba(239, 68, 68, 0.3);">
+                        Confirm
+                    </button>
+                </div>
+            </div>
         </div>
-    </div>
-</div>
 
-<style>
-@keyframes modalPop { to { transform:scale(1); } }
-</style>
+        <style>
+            @keyframes modalPop {
+                to {
+                    transform: scale(1);
+                }
+            }
+        </style>
 
-<div id="securityModal" style="display:none; position:fixed; z-index:31000; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.6); backdrop-filter:blur(4px); align-items:center; justify-content:center;">
-    <div style="background:white; width:90%; max-width:380px; padding:30px; border-radius:12px; box-shadow:0 25px 50px -12px rgba(0,0,0,0.25); text-align:center; animation:secPop 0.2s forwards;">
-        
-        <div style="font-size:40px; margin-bottom:15px;">🔒</div>
-        
-        <h3 style="margin:0 0 10px 0; color:#1e293b; font-size:20px; font-weight:800;">Security Check</h3>
-        <p style="color:#64748b; font-size:14px; margin:0 0 20px 0;">Please enter your admin password to confirm this termination.</p>
+        <div id="securityModal" style="display:none; position:fixed; z-index:31000; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.6); backdrop-filter:blur(4px); align-items:center; justify-content:center;">
+            <div style="background:white; width:90%; max-width:380px; padding:30px; border-radius:12px; box-shadow:0 25px 50px -12px rgba(0,0,0,0.25); text-align:center; animation:secPop 0.2s forwards;">
 
-        <input type="password" id="secPassInput" placeholder="Enter Admin Password" 
-            style="width:100%; padding:12px; border:1px solid #cbd5e1; border-radius:8px; font-size:16px; margin-bottom:20px; text-align:center;">
+                <div style="font-size:40px; margin-bottom:15px;">🔒</div>
 
-        <div style="display:flex; gap:10px;">
-            <button onclick="document.getElementById('securityModal').style.display='none'" 
-                style="flex:1; padding:12px; background:#e2e8f0; color:#475569; border:none; border-radius:8px; font-weight:bold; cursor:pointer;">
-                Cancel
-            </button>
-            <button onclick="submitSecurityCheck()" 
-                style="flex:1; padding:12px; background:#ef4444; color:white; border:none; border-radius:8px; font-weight:bold; cursor:pointer; box-shadow:0 4px 6px -1px rgba(239, 68, 68, 0.3);">
-                Confirm
-            </button>
+                <h3 style="margin:0 0 10px 0; color:#1e293b; font-size:20px; font-weight:800;">Security Check</h3>
+                <p style="color:#64748b; font-size:14px; margin:0 0 20px 0;">Please enter your admin password to confirm this termination.</p>
+
+                <input type="password" id="secPassInput" placeholder="Enter Admin Password"
+                    style="width:100%; padding:12px; border:1px solid #cbd5e1; border-radius:8px; font-size:16px; margin-bottom:20px; text-align:center;">
+
+                <div style="display:flex; gap:10px;">
+                    <button onclick="document.getElementById('securityModal').style.display='none'"
+                        style="flex:1; padding:12px; background:#e2e8f0; color:#475569; border:none; border-radius:8px; font-weight:bold; cursor:pointer;">
+                        Cancel
+                    </button>
+                    <button onclick="submitSecurityCheck()"
+                        style="flex:1; padding:12px; background:#ef4444; color:white; border:none; border-radius:8px; font-weight:bold; cursor:pointer; box-shadow:0 4px 6px -1px rgba(239, 68, 68, 0.3);">
+                        Confirm
+                    </button>
+                </div>
+            </div>
         </div>
-    </div>
-</div>
 
-<style>
-@keyframes secPop { from{transform:scale(0.95); opacity:0;} to{transform:scale(1); opacity:1;} }
-</style>
+        <style>
+            @keyframes secPop {
+                from {
+                    transform: scale(0.95);
+                    opacity: 0;
+                }
+
+                to {
+                    transform: scale(1);
+                    opacity: 1;
+                }
+            }
+        </style>
 
 </body>
 

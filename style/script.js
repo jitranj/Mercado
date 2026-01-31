@@ -25,7 +25,7 @@ function toggleMonthInput() {
     const type = document.getElementById('payType').value;
     const rentGroup = document.getElementById('rentInfoGroup');
     const amountInput = document.getElementById('payAmount');
-    const orGroup = document.getElementById('orFieldGroup'); 
+    const orGroup = document.getElementById('orFieldGroup');
 
     if (type === 'rent') {
         rentGroup.style.display = 'block';
@@ -56,7 +56,7 @@ function toggleMonthInput() {
 function switchFloor(f) {
     document.querySelectorAll('.floor-view').forEach(el => el.classList.remove('active'));
     document.querySelectorAll('.toggle-btn[id^="btn-f"]').forEach(el => el.classList.remove('active'));
-    
+
     document.getElementById('floor-' + f).classList.add('active');
     document.getElementById('btn-f' + f).classList.add('active');
 
@@ -85,7 +85,7 @@ function openAnalytics() {
 function updateAnalytics() {
     const period = document.getElementById('reportPeriod').value;
 
-    fetch(`api_analytics.php?period=${period}`)
+    fetch(`api/api_analytics.php?period=${period}`)
         .then(r => r.json())
         .then(data => {
             animateValue('kpiRevenue', 0, parseInt(data.revenue_month), 1000, '₱');
@@ -104,7 +104,7 @@ function updateAnalytics() {
                     row.style.cursor = 'pointer';
                     row.onclick = () => {
                         document.getElementById('analyticsModal').style.display = 'none';
-                        setTimeout(() => openModal(item.stall_id), 300); 
+                        setTimeout(() => openModal(item.stall_id), 300);
                     };
                     row.innerHTML = `
                         <td style="padding:12px 8px;">
@@ -201,27 +201,27 @@ function animateValue(id, start, end, duration, prefix = '') {
 
 
 function exportReport() {
-    window.open('report_print.php?type=dashboard', '_blank');
+    window.open('print/report_print.php?type=dashboard', '_blank');
 }
 
 function viewAllDelinquents() {
-    window.open('report_print.php?type=red_list', '_blank');
+    window.open('print/report_print.php?type=red_list', '_blank');
 }
 
 function generateSOAReport() {
-    window.open('soa_print.php?bulk=true', '_blank');
+    window.open('print/soa_print.php?bulk=true', '_blank');
 }
 
 function sendPaymentReminders() {
     confirmAction("Send Reminders", "Send email reminders to ALL delinquent tenants?", () => {
-        fetch('api_admin.php?action=send_reminders', { method: 'POST' })
+        fetch('api/api_admin.php?action=send_reminders', { method: 'POST' })
             .then(r => r.json())
             .then(d => showToast(d.message || 'Reminders queued!', 'success'));
-    }, 'info'); 
+    }, 'info');
 }
 
 function exportTenantData() {
-    window.open('api_admin.php?action=export_tenants_csv', '_blank');
+    window.open('api/api_admin.php?action=export_tenants_csv', '_blank');
 }
 
 function openSettings() {
@@ -257,7 +257,7 @@ function switchTab(tabId, btn) {
 
 function changePass() {
     const formData = new FormData(document.getElementById('passForm'));
-    fetch('api_admin.php', { method: 'POST', body: formData })
+    fetch('api/api_admin.php', { method: 'POST', body: formData })
         .then(r => r.json())
         .then(d => {
             if (d.success) {
@@ -280,7 +280,7 @@ function addUser() {
         return;
     }
 
-    fetch('api_admin.php', { method: 'POST', body: formData })
+    fetch('api/api_admin.php', { method: 'POST', body: formData })
         .then(r => r.text())
         .then(text => {
             try {
@@ -309,7 +309,7 @@ function openModal(id) {
     document.getElementById('historyList').innerHTML = '';
     if (document.getElementById('btnHistory')) document.getElementById('btnHistory').style.display = 'none';
 
-    document.getElementById('rDate').innerText = ""; 
+    document.getElementById('rDate').innerText = "";
 
     document.getElementById('newTenantForm').style.display = 'none';
     document.getElementById('reserveForm').style.display = 'none';
@@ -321,10 +321,10 @@ function openModal(id) {
     if (document.getElementById('reservationPanel')) document.getElementById('reservationPanel').remove();
 
     const canFinancials = ['admin', 'manager', 'staff_billing', 'staff_cashier'].includes(USER_ROLE);
-    const canOperations = ['admin', 'manager'].includes(USER_ROLE); 
-    const isMonitor     = USER_ROLE === 'staff_monitor';
+    const canOperations = ['admin', 'manager'].includes(USER_ROLE);
+    const isMonitor = USER_ROLE === 'staff_monitor';
 
-    fetch(`api_stall_details.php?id=${id}`).then(r => r.json()).then(d => {
+    fetch(`api/api_stall_details.php?id=${id}`).then(r => r.json()).then(d => {
         window.currentStallId = id;
         window.currentRenterId = d.renter ? d.renter.id : null;
         window.currentStallRate = d.stall.rate;
@@ -343,6 +343,13 @@ function openModal(id) {
             if (d.renter.is_reservation == 1) {
                 document.getElementById('renterDetails').style.display = 'block';
                 document.getElementById('rName').innerText = d.renter.name + " (Applicant)";
+                if (d.renter.billing_account_number) {
+                    document.getElementById('rBan').innerText = d.renter.billing_account_number;
+                    document.getElementById('banDisplay').style.display = 'block';
+                } else {
+                    document.getElementById('banDisplay').style.display = 'none';
+                }
+
                 document.getElementById('rContact').innerText = d.renter.contact;
 
                 btnPay.style.display = 'none';
@@ -391,10 +398,10 @@ function openModal(id) {
             } else {
                 document.getElementById('renterDetails').style.display = 'block';
                 const rNameBox = document.getElementById('rName');
-                
-                rNameBox.style.display = 'block'; 
-                rNameBox.style.textAlign = 'center'; 
-                
+
+                rNameBox.style.display = 'block';
+                rNameBox.style.textAlign = 'center';
+
                 let editIcon = '';
                 if (canOperations) {
                     editIcon = `
@@ -409,7 +416,14 @@ function openModal(id) {
                     <span style="font-size:20px; font-weight:800; color:#1e293b; vertical-align:middle;">${d.renter.name}</span>
                     ${editIcon}
                 `;
-                
+
+                if (d.renter.billing_account_number) {
+                    document.getElementById('rBan').innerText = d.renter.billing_account_number;
+                    document.getElementById('banDisplay').style.display = 'block';
+                } else {
+                    document.getElementById('banDisplay').style.display = 'none';
+                }
+
                 window.currentRenterData = d.renter;
 
                 document.getElementById('rContact').innerHTML = d.renter.contact +
@@ -420,7 +434,7 @@ function openModal(id) {
                 const nextDue = d.renter.next_due;
                 const today = new Date().toISOString().slice(0, 7);
                 window.isRentPaidUp = (nextDue > today);
-                
+
                 window.goodwillBalance = parseFloat(d.renter.goodwill.balance);
                 window.isGoodwillPaidUp = (window.goodwillBalance <= 0);
 
@@ -434,8 +448,8 @@ function openModal(id) {
                     badge.style.cssText = "background:#dcfce7; color:#166534; padding:12px; border-radius:8px; font-weight:800; text-align:center; margin-bottom:15px; border:1px solid #bbf7d0; font-size:14px;";
                     document.getElementById('renterDetails').insertBefore(badge, btnPay);
 
-                    btnPay.style.display = 'none'; 
-                } 
+                    btnPay.style.display = 'none';
+                }
                 else if (window.isRentPaidUp && !window.isGoodwillPaidUp) {
                     let badge = document.createElement('div');
                     badge.id = 'paidUpBadge';
@@ -445,7 +459,7 @@ function openModal(id) {
 
                     btnPay.style.display = canFinancials ? 'block' : 'none';
                     btnPay.innerText = "Pay Goodwill";
-                } 
+                }
                 else if (!window.isRentPaidUp && window.isGoodwillPaidUp) {
                     let badge = document.createElement('div');
                     badge.id = 'paidUpBadge';
@@ -488,12 +502,12 @@ function openModal(id) {
 
                 if (canFinancials) {
                     btnSOA.style.display = 'block';
-                    btnSOA.onclick = () => window.open(`soa_print.php?id=${d.renter.id}`, '_blank');
+                    btnSOA.onclick = () => window.open(`print/soa_print.php?id=${d.renter.id}`, '_blank');
                 } else btnSOA.style.display = 'none';
 
                 if (canFinancials) {
                     btnHistory.style.display = 'block';
-                    btnHistory.onclick = () => window.open(`print_history.php?id=${d.renter.id}`, '_blank');
+                    btnHistory.onclick = () => window.open(`print/print_history.php?id=${d.renter.id}`, '_blank');
                 } else {
                     btnHistory.style.display = 'none';
                 }
@@ -503,7 +517,7 @@ function openModal(id) {
                     let label = '';
                     let amtStyle = 'font-weight:bold;';
                     let dateStr = h.payment_date ? new Date(h.payment_date).toLocaleDateString() : 'N/A';
-                    
+
                     let amtDisplay = `₱${parseInt(h.amount).toLocaleString()}`;
                     if (parseFloat(h.amount) === 0) {
                         amtDisplay = `<span style="color:#10b981; font-style:italic; letter-spacing:1px;">FREE</span>`;
@@ -539,7 +553,7 @@ function openModal(id) {
             document.getElementById('modalProfilePic').style.display = 'none';
             document.getElementById('emptyState').style.display = 'block';
             document.getElementById('historyList').innerHTML = '';
-            
+
             if (canOperations) {
                 btnAssign.style.display = 'block';
                 btnReserve.style.display = 'block';
@@ -581,7 +595,7 @@ function togglePayForm() {
         if (!window.isRentPaidUp) payTypeSelect.value = 'rent';
         else if (!window.isGoodwillPaidUp) payTypeSelect.value = 'goodwill';
 
-        toggleMonthInput(); 
+        toggleMonthInput();
     }
 }
 
@@ -594,8 +608,8 @@ function toggleTenantForm() {
 
     if (f.style.display === 'block') {
         document.getElementById('wizardStallId').value = window.currentStallId;
-        document.getElementById('wizReservationId').value = 0; 
-        document.getElementById('tenantForm').reset(); 
+        document.getElementById('wizReservationId').value = 0;
+        document.getElementById('tenantForm').reset();
     }
 }
 
@@ -616,11 +630,11 @@ function submitPayment() {
     if (type === 'goodwill') {
         if (amount > window.goodwillBalance) {
             showToast(`⚠️ Cannot overpay! The remaining Goodwill balance is only ₱${window.goodwillBalance.toLocaleString()}.`, "error");
-            return; 
+            return;
         }
     }
 
-    fetch('api_add_payment.php', { method: 'POST', body: formData })
+    fetch('api/api_add_payment.php', { method: 'POST', body: formData })
         .then(r => r.json()).then(d => {
             if (d.success) {
                 showToast("Payment Recorded!", "success");
@@ -641,10 +655,10 @@ function submitNewTenant() {
 
     if (initPay > gwTotal) {
         showToast(`⚠️ Error: Payment (₱${initPay.toLocaleString()}) cannot exceed the total Goodwill of ₱${gwTotal.toLocaleString()}.`, "error");
-        return; 
+        return;
     }
 
-    fetch('api_assign_tenant.php', { method: 'POST', body: fd })
+    fetch('api/api_assign_tenant.php', { method: 'POST', body: fd })
         .then(r => r.json())
         .then(d => {
             if (d.success) {
@@ -663,27 +677,27 @@ function terminateContract() {
         fd.append('stall_id', window.currentStallId);
         fd.append('admin_password', adminPass);
 
-        fetch('api_terminate.php', { method: 'POST', body: fd })
+        fetch('api/api_terminate.php', { method: 'POST', body: fd })
             .then(r => r.json())
             .then(d => {
                 if (d.success) {
                     showToast("Contract Terminated", "success");
-                    
+
                     closeModal();
 
                     if (typeof refreshMapBlock === "function") {
                         refreshMapBlock(window.currentStallId);
                     } else {
-                        setTimeout(() => location.reload(), 1000); 
+                        setTimeout(() => location.reload(), 1000);
                     }
 
                 } else {
                     showToast(d.message || "Error terminating", "error");
                 }
             })
-            .catch(e => { 
-                console.error(e); 
-                showToast("Network Error (Check Console)", "error"); 
+            .catch(e => {
+                console.error(e);
+                showToast("Network Error (Check Console)", "error");
             });
     });
 }
@@ -698,7 +712,7 @@ function liveSearch() {
     if (q.length < 2) { res.style.display = 'none'; return; }
 
     sTimer = setTimeout(() => {
-        fetch(`api_search.php?q=${q}`)
+        fetch(`api/api_search.php?q=${q}`)
             .then(r => r.json())
             .then(d => {
                 res.innerHTML = '';
@@ -711,7 +725,7 @@ function liveSearch() {
                         div.onmouseout = () => div.style.background = "white";
 
                         div.innerHTML = `
-                            <img src="${i.img && i.img !== 'null' ? i.img : 'default_avatar.png'}" style="width:30px; height:30px; border-radius:50%; object-fit:cover;"> 
+                            <img src="${i.img && i.img !== 'null' ? i.img : 'style/default_avatar.png'}" style="width:30px; height:30px; border-radius:50%; object-fit:cover;"> 
                             <div>
                                 <div style="font-weight:700; color:#1e293b;">${i.label}</div>
                                 <div style="color:#64748b; font-size:11px;">${i.sub}</div>
@@ -750,21 +764,21 @@ document.querySelectorAll('.stall').forEach(stall => {
             hoverImg.src = (img && img !== 'null') ? img : `https://ui-avatars.com/api/?name=${hoverName.innerText}&background=random`;
 
             const hoverStatusBadge = document.getElementById('hoverStatus');
-            const hoverHeader = hoverCard.querySelector('div'); 
+            const hoverHeader = hoverCard.querySelector('div');
 
             if (status === 'reserved') {
                 hoverStatusBadge.innerText = "RESERVED";
-                hoverStatusBadge.style.color = "#fcd34d"; 
+                hoverStatusBadge.style.color = "#fcd34d";
                 hoverStatusBadge.style.background = "rgba(252, 211, 77, 0.2)";
-                hoverHeader.style.background = "#78350f"; 
+                hoverHeader.style.background = "#78350f";
 
                 hoverDue.innerText = "Pending Move-in";
-                hoverDue.style.color = "#d97706"; 
+                hoverDue.style.color = "#d97706";
             } else {
                 hoverStatusBadge.innerText = "OCCUPIED";
                 hoverStatusBadge.style.color = "white";
                 hoverStatusBadge.style.background = "rgba(255,255,255,0.2)";
-                hoverHeader.style.background = "#1e293b"; 
+                hoverHeader.style.background = "#1e293b";
 
                 let due = parseInt(stall.getAttribute('data-due'));
                 if (due > 0) {
@@ -819,7 +833,7 @@ function submitReservation() {
         return;
     }
 
-    fetch('api_reserve.php', { method: 'POST', body: formData })
+    fetch('api/api_reserve.php', { method: 'POST', body: formData })
         .then(r => r.json()).then(d => {
             if (d.success) {
                 showToast("Reserved Successfully!", "success");
@@ -832,10 +846,10 @@ function submitReservation() {
 
 function processReservation(action) {
     let title = action === 'approve' ? "Approve Tenant" : "Reject Reservation";
-    let msg = action === 'approve' 
-              ? "Are you sure you want to convert this applicant into an Official Tenant?" 
-              : "Are you sure you want to cancel this reservation and open the unit?";
-    let type = action === 'approve' ? 'info' : 'danger'; 
+    let msg = action === 'approve'
+        ? "Are you sure you want to convert this applicant into an Official Tenant?"
+        : "Are you sure you want to cancel this reservation and open the unit?";
+    let type = action === 'approve' ? 'info' : 'danger';
 
     confirmAction(title, msg, () => {
         const fd = new FormData();
@@ -843,7 +857,7 @@ function processReservation(action) {
         fd.append('stall_id', window.currentStallId);
         fd.append('renter_id', window.currentRenterId);
 
-        fetch('api_reservation_action.php', { method: 'POST', body: fd })
+        fetch('api/api_reservation_action.php', { method: 'POST', body: fd })
             .then(r => r.json()).then(d => {
                 if (d.success) {
                     showToast(d.message, "success");
@@ -879,10 +893,10 @@ function startApproval() {
 let loadedUsers = [];
 
 function loadUserList() {
-    fetch('api_admin.php?action=get_users')
+    fetch('api/api_admin.php?action=get_users')
         .then(r => r.json())
         .then(users => {
-            loadedUsers = users; 
+            loadedUsers = users;
             const tbody = document.getElementById('userTableBody');
             tbody.innerHTML = '';
 
@@ -916,7 +930,7 @@ function toggleUserForm(view) {
 
         if (btnDelete) btnDelete.style.display = 'none';
 
-        document.getElementById('adminUserForm').reset(); 
+        document.getElementById('adminUserForm').reset();
 
         const passInput = document.getElementById('uPass');
         passInput.name = "password";
@@ -944,7 +958,7 @@ function toggleUserForm(view) {
 }
 
 function openEditUser(index) {
-    const u = loadedUsers[index]; 
+    const u = loadedUsers[index];
 
     toggleUserForm('edit');
     document.getElementById('userFormTitle').innerText = "Edit " + u.username;
@@ -957,7 +971,7 @@ function openEditUser(index) {
     const passInput = document.getElementById('uPass');
     passInput.name = "new_password";
     passInput.placeholder = "Leave blank to keep current";
-    passInput.required = false; 
+    passInput.required = false;
     document.getElementById('passHint').innerText = "Only fill to reset password";
 }
 
@@ -980,13 +994,13 @@ function submitAdminUserForm() {
         return;
     }
 
-    fetch('api_admin.php', { method: 'POST', body: fd })
+    fetch('api/api_admin.php', { method: 'POST', body: fd })
         .then(r => r.json())
         .then(d => {
             if (d.success) {
                 showToast(d.message || "Success!", "success");
 
-                form.reset(); 
+                form.reset();
 
                 toggleUserForm('list');
                 loadUserList();
@@ -1007,10 +1021,10 @@ function deleteUser() {
     }
 
     confirmAction("Delete User", "Are you sure you want to PERMANENTLY DELETE this staff account? This cannot be undone.", () => {
-        
+
         fd.set('action', 'delete_user');
 
-        fetch('api_admin.php', { method: 'POST', body: fd })
+        fetch('api/api_admin.php', { method: 'POST', body: fd })
             .then(r => r.json())
             .then(d => {
                 if (d.success) {
@@ -1021,8 +1035,8 @@ function deleteUser() {
                 }
             })
             .catch(e => { console.error(e); showToast("Server Error", "error"); });
-            
-    }); 
+
+    });
 }
 
 function toggleEditMode() {
@@ -1035,8 +1049,8 @@ function toggleEditMode() {
     document.getElementById('editName').value = d.name;
     document.getElementById('editContact').value = d.contact;
     document.getElementById('editEmail').value = d.email || '';
-    
-    document.getElementById('editStartDate').value = d.start_date || d.since; 
+
+    document.getElementById('editStartDate').value = d.start_date || d.since;
 
     const passwordBox = document.querySelector('#formEditRenter input[name="admin_password"]');
     if (passwordBox) passwordBox.value = "";
@@ -1051,26 +1065,26 @@ function submitEditRenter() {
     const form = document.getElementById('formEditRenter');
     const fd = new FormData(form);
 
-    fetch('api_edit_renter.php', { method: 'POST', body: fd })
+    fetch('api/api_edit_renter.php', { method: 'POST', body: fd })
         .then(r => r.json())
         .then(d => {
             if (d.success) {
                 showToast("Details Updated Successfully!", "success");
-                
+
                 const passwordBox = document.querySelector('#formEditRenter input[name="admin_password"]');
                 if (passwordBox) passwordBox.value = "";
 
                 openModal(window.currentStallId);
             } else {
                 showToast(d.message || "Update Failed", "error");
-                
+
                 const passwordBox = document.querySelector('#formEditRenter input[name="admin_password"]');
                 if (passwordBox) passwordBox.value = "";
             }
         })
-        .catch(e => { 
-            console.error(e); 
-            showToast("Server Error", "error"); 
+        .catch(e => {
+            console.error(e);
+            showToast("Server Error", "error");
             const passwordBox = document.querySelector('#formEditRenter input[name="admin_password"]');
             if (passwordBox) passwordBox.value = "";
         });
@@ -1085,13 +1099,13 @@ function confirmAction(title, message, yesCallback, type = 'danger') {
     const m = document.getElementById('systemModal');
     const btn = document.getElementById('sysBtnConfirm');
     const icon = document.getElementById('sysIcon');
-    
+
     document.getElementById('sysTitle').innerText = title;
     document.getElementById('sysMessage').innerText = message;
-    
+
     if (type === 'danger') {
         icon.innerText = "⚠️";
-        btn.style.background = "#ef4444"; 
+        btn.style.background = "#ef4444";
         btn.innerText = "Yes, Do It";
     } else if (type === 'logout') {
         icon.innerText = "👋";
@@ -1103,11 +1117,11 @@ function confirmAction(title, message, yesCallback, type = 'danger') {
         btn.innerText = "Okay";
     }
 
-    btn.onclick = function() {
+    btn.onclick = function () {
         closeSysModal();
         if (yesCallback) yesCallback();
     };
-    
+
     m.style.display = 'flex';
 }
 
@@ -1115,7 +1129,7 @@ let pendingSecurityCallback = null;
 
 function requestPassword(callback) {
     pendingSecurityCallback = callback;
-    document.getElementById('secPassInput').value = ''; 
+    document.getElementById('secPassInput').value = '';
     document.getElementById('securityModal').style.display = 'flex';
     document.getElementById('secPassInput').focus();
 }
@@ -1126,25 +1140,25 @@ function submitSecurityCheck() {
         showToast("⚠️ Password required", "error");
         return;
     }
-    
+
     document.getElementById('securityModal').style.display = 'none';
     if (pendingSecurityCallback) {
         pendingSecurityCallback(pass);
-        pendingSecurityCallback = null; 
+        pendingSecurityCallback = null;
     }
 }
 
-(function() {
-    const IDLE_LIMIT = 2 * 60 * 60 * 1000;   
-    const GRACE_PERIOD = 15 * 60 * 1000;     
-    
-    let idleTimer;   
-    let logoutTimer; 
+(function () {
+    const IDLE_LIMIT = 2 * 60 * 60 * 1000;
+    const GRACE_PERIOD = 15 * 60 * 1000;
+
+    let idleTimer;
+    let logoutTimer;
     let isWarningActive = false;
 
     function startIdleTimer() {
-        if (isWarningActive) return; 
-        
+        if (isWarningActive) return;
+
         clearTimeout(idleTimer);
         idleTimer = setTimeout(showInactivityWarning, IDLE_LIMIT);
     }
@@ -1161,17 +1175,17 @@ function submitSecurityCheck() {
 
         title.innerText = "Session Timeout";
         msg.innerText = "No activity detected for 2 hours. You will be signed out in 15 minutes.";
-        icon.innerText = "⏰"; 
-        
+        icon.innerText = "⏰";
+
         btnYes.innerText = "I'm Here!";
-        btnYes.style.background = "#10b981"; 
+        btnYes.style.background = "#10b981";
         btnNo.innerText = "Dismiss";
 
         const userIsAlive = () => {
-            clearTimeout(logoutTimer);    
-            isWarningActive = false;      
-            modal.style.display = 'none'; 
-            startIdleTimer();             
+            clearTimeout(logoutTimer);
+            isWarningActive = false;
+            modal.style.display = 'none';
+            startIdleTimer();
         };
 
         btnYes.onclick = userIsAlive;
@@ -1196,5 +1210,66 @@ document.addEventListener('DOMContentLoaded', () => {
     const savedFloor = localStorage.getItem('activeFloor');
     if (savedFloor) {
         switchFloor(savedFloor);
+    }
+});
+
+function copyBan() {
+    const banText = document.getElementById('rBan').innerText.trim();
+    
+    if (!banText || banText === '--') return;
+
+    const fallbackCopy = (text) => {
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        
+        textArea.style.position = "fixed";
+        textArea.style.left = "-9999px";
+        textArea.style.top = "0";
+        
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        
+        try {
+            document.execCommand('copy');
+            showToast("Account Number Copied! 📋", "success");
+        } catch (err) {
+            console.error('Fallback copy failed', err);
+            prompt("Copy failed. Press Ctrl+C to copy:", text);
+        }
+        
+        document.body.removeChild(textArea);
+    };
+
+    if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(banText)
+            .then(() => {
+                showToast("Account Number Copied! 📋", "success");
+            })
+            .catch(err => {
+                console.warn("Modern copy failed, switching to fallback...");
+                fallbackCopy(banText);
+            });
+    } else {
+        fallbackCopy(banText);
+    }
+}
+
+function toggleTheme() {
+    const body = document.body;
+    body.classList.toggle('light-mode');
+    
+    const isLight = body.classList.contains('light-mode');
+    localStorage.setItem('mercado_theme', isLight ? 'light' : 'dark');
+    
+    document.getElementById('themeIcon').innerText = isLight ? '🌙' : '☀️';
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const savedTheme = localStorage.getItem('mercado_theme');
+    if (savedTheme === 'light') {
+        document.body.classList.add('light-mode');
+        const icon = document.getElementById('themeIcon');
+        if(icon) icon.innerText = '🌙';
     }
 });

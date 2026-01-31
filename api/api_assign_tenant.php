@@ -1,8 +1,8 @@
 <?php
 header('Content-Type: application/json');
 session_start(); 
-include 'db_connect.php';
-
+include '../db/db_connect.php';
+include '../db/helpers.php'; 
 
 if (!isset($_SESSION['user_id'])) {
     echo json_encode(['success' => false, 'message' => 'Unauthorized']);
@@ -15,8 +15,10 @@ if (!in_array($current_role, ['admin', 'manager'])) {
     exit;
 }
 
-$target_dir = "uploads/";
-if (!is_dir($target_dir)) mkdir($target_dir, 0777, true);
+
+$physical_dir = "../uploads/";
+
+if (!is_dir($physical_dir)) mkdir($physical_dir, 0777, true);
 
 $allowed_docs = ['pdf', 'jpg', 'jpeg', 'png', 'doc', 'docx'];
 $allowed_imgs = ['jpg', 'jpeg', 'png', 'webp'];
@@ -35,24 +37,32 @@ if (!$stall_id || !$name) {
     exit;
 }
 
-$contract_path = null;
+$contract_db_path = null; 
+
 if (isset($_FILES['contract_file']) && $_FILES['contract_file']['error'] == 0) {
     $ext = strtolower(pathinfo($_FILES["contract_file"]["name"], PATHINFO_EXTENSION));
     if (in_array($ext, $allowed_docs)) {
         $filename = time() . "_contract." . $ext;
-        if (move_uploaded_file($_FILES["contract_file"]["tmp_name"], $target_dir . $filename)) {
-            $contract_path = $target_dir . $filename;
+        
+        $target_file = $physical_dir . $filename; 
+        
+        if (move_uploaded_file($_FILES["contract_file"]["tmp_name"], $target_file)) {
+            $contract_db_path = "uploads/" . $filename; 
         }
     }
 }
 
-$profile_path = null;
+$profile_db_path = null; 
+
 if (isset($_FILES['profile_image']) && $_FILES['profile_image']['error'] == 0) {
     $ext = strtolower(pathinfo($_FILES["profile_image"]["name"], PATHINFO_EXTENSION));
     if (in_array($ext, $allowed_imgs)) {
         $filename = time() . "_profile." . $ext;
-        if (move_uploaded_file($_FILES["profile_image"]["tmp_name"], $target_dir . $filename)) {
-            $profile_path = $target_dir . $filename;
+        
+        $target_file = $physical_dir . $filename; 
+        
+        if (move_uploaded_file($_FILES["profile_image"]["tmp_name"], $target_file)) {
+            $profile_db_path = "uploads/" . $filename;
         }
     }
 }
@@ -61,28 +71,30 @@ $conn->begin_transaction();
 try {
     $final_renter_id = 0;
 
+    $ban = generate_billing_account_number($conn);
+
     if ($reservation_id > 0) {
-      
         $sql = "UPDATE renters SET 
                 renter_name = ?, 
                 contact_number = ?, 
                 email_address = ?, 
                 start_date = ?, 
                 is_reservation = 0, 
-                goodwill_total = ?";
+                goodwill_total = ?,
+                billing_account_number = ?"; 
         
-        $types = "ssssd";
-        $params = [$name, $contact, $email, $start_date, $goodwill_total];
+        $types = "ssssds"; 
+        $params = [$name, $contact, $email, $start_date, $goodwill_total, $ban]; 
 
-        if ($contract_path) { 
+        if ($contract_db_path) { 
             $sql .= ", contract_file = ?"; 
             $types .= "s"; 
-            $params[] = $contract_path;
+            $params[] = $contract_db_path;
         }
-        if ($profile_path) { 
+        if ($profile_db_path) { 
             $sql .= ", profile_image = ?"; 
             $types .= "s"; 
-            $params[] = $profile_path;
+            $params[] = $profile_db_path;
         }
 
         $sql .= " WHERE renter_id = ?";
@@ -98,8 +110,10 @@ try {
         $conn->query("UPDATE stalls SET status = 'occupied' WHERE id = $stall_id");
 
     } else {
-        $stmt = $conn->prepare("INSERT INTO renters (stall_id, renter_name, contact_number, email_address, start_date, contract_file, profile_image, goodwill_total) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
-        $stmt->bind_param("issssssd", $stall_id, $name, $contact, $email, $start_date, $contract_path, $profile_path, $goodwill_total);
+
+        $stmt = $conn->prepare("INSERT INTO renters (stall_id, renter_name, contact_number, email_address, start_date, contract_file, profile_image, goodwill_total, billing_account_number) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        
+        $stmt->bind_param("issssssds", $stall_id, $name, $contact, $email, $start_date, $contract_db_path, $profile_db_path, $goodwill_total, $ban);
         $stmt->execute();
         
         $final_renter_id = $conn->insert_id;
@@ -113,10 +127,8 @@ try {
         $stmt3->execute();
     }
 
-
     if ($initial_payment >= $goodwill_total && $goodwill_total > 0) {
         $first_month = date('Y-m-01', strtotime($start_date));
-        
         $dry_remarks = "Goodwill Offset"; 
         $zero_amount = 0.00; 
 

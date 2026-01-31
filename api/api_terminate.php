@@ -2,7 +2,7 @@
 ob_start();
 
 session_start();
-include 'db_connect.php';
+include '../db/db_connect.php';
 
 header('Content-Type: application/json');
 

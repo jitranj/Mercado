@@ -1,5 +1,5 @@
 <?php
-include 'db_connect.php';
+include '../db/db_connect.php';
 
 $tables = [];
 $result = $conn->query("SHOW TABLES");
